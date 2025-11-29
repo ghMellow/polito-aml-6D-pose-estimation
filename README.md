@@ -1,6 +1,6 @@
-# Project 6D pose estimation
+# 6D Object Pose Estimation
 
-Structured project template for Machine Learning/Deep Learning with PyTorch. Implements best practices for organization, reproducibility, and collaboration.
+End-to-end pipeline for 6D object pose estimation using RGB-D images. The project implements object detection and pose prediction techniques, progressively incorporating depth information to improve estimation accuracy.
 
 ---
 
@@ -13,127 +13,82 @@ polito-aml-6D_pose_estimation/
 │   ├── best_model.pth            # Best model saved automatically (gitignored)
 │   └── checkpoint_epoch_N.pth    # Periodic checkpoints (gitignored)
 │
-├── data/                         # 📁 DATASET FILES (gitignored - download separately)
+├── data/                         # 📁 DATASET FILES (LineMOD subset - download separately)
 │   ├── .gitkeep
-│   ├── training_set/             # Training images (cats/, dogs/)
-│   └── test_set/                 # Test images (cats/, dogs/)
+│   └── ...                       # RGB-D images, bounding boxes, masks, 3D models
 |
 ├── dataset/                      # 📦 DATASET MODULE
-│   ├── __init__.py               # Exports: CustomImageDataset, create_annotations_csv
-│   └── custom_dataset.py         # PyTorch Dataset class for data loading from CSV
+│   ├── __init__.py               # Dataset exports
+│   └── custom_dataset.py         # PyTorch Dataset class for data loading
 │
 ├── models/                       # 🧠 MODELS MODULE
-│   ├── __init__.py               # Exports: create_name_model
-│   └── vgg_finetuning.py         # Model architectures
+│   ├── __init__.py               # Model exports
+│   └── pose_estimator.py         # Pose estimation architectures
 │
 ├── utils/                        # 🛠️ UTILITIES MODULE
-│   ├── __init__.py               # Exports: transforms, visualization, metrics functions
-│   ├── download_dataset.py       # DATASET DOWNLOADER (downloads dataset, e.g., from Kaggle)
-│   ├── transforms.py             # Data augmentation and preprocessing (train/val/test)
-│   ├── visualization.py          # Plotting and visualizations (denormalize, plot curves)
-│   └── metrics.py                # Metrics computation and dataset statistics
+│   ├── __init__.py               # Utility exports
+│   ├── download_dataset.py       # Dataset downloader
+│   ├── transforms.py             # Data preprocessing and augmentation
+│   ├── visualization.py          # Plotting and visualizations
+│   └── metrics.py                # Evaluation metrics (mAP, ADD)
 │
 ├── train.py                      # 🚂 TRAINING SCRIPT (main training loop with CLI)
-├── eval.py                       # 📊 EVALUATION SCRIPT (test set evaluation with CLI)
-├── config.py                     # ⚙️ CONFIGURATION (hyperparameters and central settings)
+├── eval.py                       # 📊 EVALUATION SCRIPT (evaluation with CLI)
+├── config.py                     # ⚙️ CONFIGURATION (hyperparameters and settings)
 │
 ├── colab_training.ipynb          # 📓 GOOGLE COLAB NOTEBOOK (training on Colab)
 ├── requirements.txt              # 📋 PYTHON DEPENDENCIES (pip install -r requirements.txt)
-├── .gitignore                    # 🚫 GIT IGNORE (data/, checkpoints/*.pth, *.csv, wandb/)
+├── .gitignore                    # 🚫 GIT IGNORE (data/, checkpoints/*.pth, wandb/)
 │
 └── README.md
 ```
 
 ---
 
-## 🎯 Implemented Best Practices
+## 🎯 Project Overview
 
-✅ **Modularity**: Code split into reusable modules
+This project focuses on 6D pose estimation, which determines both the **3D position** (translation vector) and **3D orientation** (rotation matrix) of objects in space. The pipeline combines:
 
-✅ **CLI Interface**: Argparse for all scripts
+- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLO)
+- **Pose Estimation**: Predicting 6D pose from detected regions using CNN-based architectures
+- **RGB-D Fusion**: Enhancing predictions by incorporating depth information
 
-* **What is it?** Command-Line Interface allows running scripts from the terminal by passing parameters as options (e.g., `--epochs 10 --lr 0.001`)
-* **Benefits:** No need to modify the code for each experiment; all parameters are configurable from the command line
-* **Implementation:** Uses Python’s `argparse` to define all available arguments (data_dir, epochs, batch_size, learning rate, etc.)
-
-✅ **Reproducibility**: requirements.txt + config.py
-
-* **config.py** defines default values and project constants
-* **CLI arguments** allow overriding defaults without code changes
-* The two approaches are complementary: config.py is the “control center,” the CLI provides flexibility for experiments
-
-✅ **Checkpoint Management**: Auto-save best model
-
-✅ **Logging**: Wandb integration
-
-✅ **Documentation**: Docstrings + complete README
-
-✅ **Git-friendly**: Proper .gitignore
-
-✅ **Data Augmentation**: Only on train, not on val/test
-
-✅ **Separation of Concerns**: train.py vs eval.py
+The implementation follows a modular structure with clear separation of concerns, enabling easy experimentation and extension.
 
 ---
 
-## 🔍 For AI Assistants
+## 🎯 Key Components
 
-**This project follows a standard modular structure:**
+✅ **Modularity**: Code split into reusable modules (dataset, models, utils)
 
-1. **Dataset Module** (`dataset/`): Data loading management
-2. **Models Module** (`models/`): Architectures and model creation
-3. **Utils Module** (`utils/`): Transforms, visualization, metrics
-4. **Training Script** (`train.py`): Main training loop with CLI
-5. **Eval Script** (`eval.py`): Test set evaluation
-6. **Config** (`config.py`): Centralized configuration
+✅ **CLI Interface**: Argparse for flexible script execution
 
-**Key Points:**
+✅ **Reproducibility**: requirements.txt + config.py for consistent experiments
 
-* Each module has an `__init__.py` with explicit exports
-* CLI scripts use argparse
-* Training (train/validate/test functions)
-* Automatic checkpoint management
-* Optional but complete Wandb integration
-* Transforms: AUGMENTATION only on train!
+✅ **Checkpoint Management**: Automatic model saving
 
-**When to suggest modifications:**
+✅ **Logging**: Wandb integration for experiment tracking
 
-* Add new models → `models/new_model.py`
-* New metrics → `utils/metrics.py`
-* New datasets → `dataset/new_dataset.py`
-* Training modifications → `train.py` (keep CLI style)
+✅ **Documentation**: Clear structure and documentation
+
+✅ **Git-friendly**: Proper .gitignore for large files
 
 ---
 
-## 🤝 Contributing
+## 🔍 Module Overview
 
-To adapt this skeleton to your project:
+**Dataset Module** (`dataset/`): Handles data loading and preprocessing for RGB-D images, bounding boxes, masks, and 3D models
 
-1. **Dataset**: Modify `dataset/custom_dataset.py` for your format
-2. **Model**: Add your architecture in `models/`
-3. **Config**: Update `config.py` with your parameters
-4. **Training**: Modify `train.py` if needed (keep CLI)
-5. **Update README**: Document your changes
+**Models Module** (`models/`): Contains pose estimation architectures and model creation functions
 
----
+**Utils Module** (`utils/`): Provides transforms, visualization tools, and evaluation metrics
 
-## 🚫 Git Ignore (`.gitignore`)
+**Training Script** (`train.py`): Main training loop with command-line interface
 
-**What it ignores:**
+**Evaluation Script** (`eval.py`): Model evaluation on test data
 
-* `data/` – Dataset (too large, downloaded separately)
-* `checkpoints/*.pth` – Model checkpoints (too large)
-* `*.csv` – Annotation files (generated automatically)
-* `wandb/` – Wandb logs (synced to cloud)
-* `__pycache__/` – Python cache
-* `.DS_Store` – macOS files
+**Config** (`config.py`): Centralized hyperparameters and configuration
 
-**What it tracks:**
-
-* Source code (`.py`)
-* Configurations
-* README and docs
-* `.gitkeep` for empty folders
 
 ---
 
@@ -145,17 +100,13 @@ To adapt this skeleton to your project:
 git clone <repo-url>
 cd polito-aml-6D_pose_estimation
 pip install -r requirements.txt
-python download_dataset.py
+python utils/download_dataset.py
 ```
 
 ### 2. Training
 
 ```bash
-# Feature extraction (base frozen)
-python train.py --data_dir ./data --epochs 10 --freeze_base --use_wandb
-
-# Full fine-tuning (everything trainable)
-python train.py --data_dir ./data --epochs 10 --use_wandb
+python train.py --data_dir ./data --epochs 50 --batch_size 32 --use_wandb
 ```
 
 ### 3. Evaluation
@@ -164,20 +115,11 @@ python train.py --data_dir ./data --epochs 10 --use_wandb
 python eval.py --checkpoint ./checkpoints/best_model.pth --data_dir ./data
 ```
 
-### 4. Experiments
-
-```bash
-# Experiment with different LR
-python train.py --lr 0.001 --batch_size 64 --use_wandb
-
-# All experiments tracked on Wandb!
-```
-
 ---
 
 ## 📢 Release Information
 
-**📅 Last update:** November 2025
-**🏷️ Version:** v1.0.0 — First stable release
+**📅 Last update:** November 2025  
+**🏷️ Version:** v1.0.0
 
 *For details on changes and fixes, see the changelog in the repository.*
