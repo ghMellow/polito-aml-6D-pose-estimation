@@ -2,7 +2,15 @@
 
 End-to-end pipeline for 6D object pose estimation using RGB-D images. The project implements object detection and pose prediction techniques, progressively incorporating depth information to improve estimation accuracy.
 
----
+## 🎯 Project Overview
+
+This project focuses on 6D pose estimation, which determines both the **3D position** (translation vector) and **3D orientation** (rotation matrix) of objects in space. The pipeline combines:
+
+- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLO)
+- **Pose Estimation**: Predicting 6D pose from detected regions using CNN-based architectures
+- **RGB-D Fusion**: Enhancing predictions by incorporating depth information
+
+The implementation follows a modular structure with clear separation of concerns, enabling easy experimentation and extension.
 
 ## 📁 Project Structure
 
@@ -43,20 +51,6 @@ polito-aml-6D_pose_estimation/
 └── README.md
 ```
 
----
-
-## 🎯 Project Overview
-
-This project focuses on 6D pose estimation, which determines both the **3D position** (translation vector) and **3D orientation** (rotation matrix) of objects in space. The pipeline combines:
-
-- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLO)
-- **Pose Estimation**: Predicting 6D pose from detected regions using CNN-based architectures
-- **RGB-D Fusion**: Enhancing predictions by incorporating depth information
-
-The implementation follows a modular structure with clear separation of concerns, enabling easy experimentation and extension.
-
----
-
 ## 🎯 Key Components
 
 ✅ **Modularity**: Code split into reusable modules (dataset, models, utils)
@@ -73,8 +67,6 @@ The implementation follows a modular structure with clear separation of concerns
 
 ✅ **Git-friendly**: Proper .gitignore for large files
 
----
-
 ## 🔍 Module Overview
 
 **Dataset Module** (`dataset/`): Handles data loading and preprocessing for RGB-D images, bounding boxes, masks, and 3D models
@@ -88,9 +80,6 @@ The implementation follows a modular structure with clear separation of concerns
 **Evaluation Script** (`eval.py`): Model evaluation on test data
 
 **Config** (`config.py`): Centralized hyperparameters and configuration
-
-
----
 
 ## 🔄 Typical Workflow
 
@@ -114,8 +103,6 @@ python train.py --data_dir ./data --epochs 50 --batch_size 32 --use_wandb
 ```bash
 python eval.py --checkpoint ./checkpoints/best_model.pth --data_dir ./data
 ```
-
----
 
 ## 📢 Release Information
 
