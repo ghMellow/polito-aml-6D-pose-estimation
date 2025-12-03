@@ -1,3 +1,6 @@
+# Local folder for personal stuff
+personal/*
+
 # Dataset
 data/
 !data/.gitkeep
