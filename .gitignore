@@ -1,6 +1,10 @@
 # Local folder for personal stuff
 personal/*
 
+# Poetry
+poetry.lock
+pyproject.toml
+
 # Dataset
 data/
 !data/.gitkeep
