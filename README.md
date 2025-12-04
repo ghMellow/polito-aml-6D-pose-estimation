@@ -6,7 +6,7 @@ End-to-end pipeline for 6D object pose estimation using RGB-D images. The projec
 
 This project focuses on 6D pose estimation, which determines both the **3D position** (translation vector) and **3D orientation** (rotation matrix) of objects in space. The pipeline combines:
 
-- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLO)
+- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLOv8)
 - **Pose Estimation**: Predicting 6D pose from detected regions using CNN-based architectures
 - **RGB-D Fusion**: Enhancing predictions by incorporating depth information
 
@@ -31,20 +31,26 @@ polito-aml-6D_pose_estimation/
 │
 ├── models/                       # 🧠 MODELS MODULE
 │   ├── __init__.py               # Model exports
-│   └── pose_estimator.py         # Pose estimation architectures
+│   └── yolo_detector.py          # YOLO-based object detection
 │
 ├── utils/                        # 🛠️ UTILITIES MODULE
 │   ├── __init__.py               # Utility exports
-│   ├── download_dataset.py       # Dataset downloader
-│   ├── transforms.py             # Data preprocessing and augmentation
-│   ├── visualization.py          # Plotting and visualizations
-│   └── metrics.py                # Evaluation metrics (mAP, ADD)
+│   └── download_dataset.py       # Dataset downloader
 │
-├── train.py                      # 🚂 TRAINING SCRIPT (main training loop with CLI)
-├── eval.py                       # 📊 EVALUATION SCRIPT (evaluation with CLI)
+├── scripts/                      # 🚀 EXECUTABLE SCRIPTS
+│   ├── train.py                  # 🚂 Training script (main training loop with CLI)
+│   └── eval.py                   # 📊 Evaluation script (evaluation with CLI)
+│
+├── notebooks/                    # 📓 JUPYTER NOTEBOOKS
+│   ├── colab_training.ipynb      # Google Colab training workflow
+│   └── Enhancing_6DPose_Estimation.ipynb  # Educational notebook
+│
+├── test/                         # 🧪 TEST NOTEBOOKS
+│   ├── test_local_dataset.ipynb  # Dataset testing
+│   └── test_yolo.ipynb           # YOLO testing
+│
 ├── config.py                     # ⚙️ CONFIGURATION (hyperparameters and settings)
-│
-├── colab_training.ipynb          # 📓 GOOGLE COLAB NOTEBOOK (training on Colab)
+├── pyproject.toml                # 📦 PROJECT METADATA (Poetry configuration)
 ├── requirements.txt              # 📋 PYTHON DEPENDENCIES (pip install -r requirements.txt)
 ├── .gitignore                    # 🚫 GIT IGNORE (data/, checkpoints/*.pth, wandb/)
 │
@@ -73,11 +79,11 @@ polito-aml-6D_pose_estimation/
 
 **Models Module** (`models/`): Contains pose estimation architectures and model creation functions
 
-**Utils Module** (`utils/`): Provides transforms, visualization tools, and evaluation metrics
+**Utils Module** (`utils/`): Provides data download utilities and helper functions
 
-**Training Script** (`train.py`): Main training loop with command-line interface
+**Scripts** (`scripts/`): Executable training and evaluation scripts with command-line interface
 
-**Evaluation Script** (`eval.py`): Model evaluation on test data
+**Notebooks** (`notebooks/`): Jupyter notebooks for Colab training and educational purposes
 
 **Config** (`config.py`): Centralized hyperparameters and configuration
 
@@ -95,13 +101,13 @@ python utils/download_dataset.py
 ### 2. Training
 
 ```bash
-python train.py --data_dir ./data --epochs 50 --batch_size 32 --use_wandb
+python scripts/train.py --data_dir ./data --epochs 50 --batch_size 32 --use_wandb
 ```
 
 ### 3. Evaluation
 
 ```bash
-python eval.py --checkpoint ./checkpoints/best_model.pth --data_dir ./data
+python scripts/eval.py --checkpoint ./checkpoints/best_model.pth --data_dir ./data
 ```
 
 ## 📢 Release Information
