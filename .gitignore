@@ -1,6 +1,12 @@
 # Local folder for personal stuff
 personal/*
 
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
 # Poetry
 poetry.lock
 pyproject.toml
@@ -12,6 +18,11 @@ data/
 # Model checkpoints
 checkpoints/*.pth
 !checkpoints/.gitkeep
+
+# YOLO pretrained weights (downloaded automatically)
+yolov8*.pt
+yolov8*.yaml
+yolo*.pt
 
 # Training logs
 wandb/

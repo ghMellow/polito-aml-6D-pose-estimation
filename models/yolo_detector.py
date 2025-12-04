@@ -7,6 +7,7 @@ as a baseline model. This will be extended later to include rotation prediction.
 
 import torch
 import numpy as np
+import os
 from pathlib import Path
 from ultralytics import YOLO
 from typing import List, Dict, Optional, Tuple
@@ -32,17 +33,47 @@ class YOLODetector:
         model_name: str = 'yolov8n',
         pretrained: bool = True,
         num_classes: int = 13,  # LineMOD has 13 objects
-        device: str = 'cpu'
+        device: str = 'cpu',
+        weights_dir: Optional[str] = None
     ):
         self.model_name = model_name
         self.num_classes = num_classes
         self.device = device
         
+        # Set weights directory (use checkpoints dir to avoid cluttering project root)
+        if weights_dir is None:
+            weights_dir = Path(__file__).parent.parent / 'checkpoints' / 'pretrained'
+            weights_dir.mkdir(parents=True, exist_ok=True)
+        self.weights_dir = Path(weights_dir)
+        
+        # Set Ultralytics settings to use our custom weights directory
+        # This prevents downloading to the current directory
+        from ultralytics.utils import SETTINGS
+        original_weights_dir = SETTINGS.get('weights_dir', None)
+        
         # Initialize YOLOv8 model
         if pretrained:
-            # Load pretrained COCO weights
-            self.model = YOLO(f'{model_name}.pt')
-            print(f"✅ Loaded pretrained {model_name} model")
+            # Check if weights already exist locally
+            weights_path = self.weights_dir / f'{model_name}.pt'
+            
+            if weights_path.exists():
+                print(f"✅ Loading pretrained {model_name} from cache: {weights_path}")
+                self.model = YOLO(str(weights_path))
+            else:
+                # Temporarily change working directory to weights_dir for download
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(self.weights_dir)
+                    print(f"📥 Downloading pretrained {model_name} model to: {self.weights_dir}")
+                    self.model = YOLO(f'{model_name}.pt')
+                    print(f"💾 Weights saved to: {self.weights_dir / f'{model_name}.pt'}")
+                finally:
+                    os.chdir(original_cwd)
+            
+            # Warning if using pretrained COCO weights with different num_classes
+            if num_classes != 80:
+                print(f"⚠️  WARNING: Using COCO pretrained weights (80 classes) for {num_classes} classes")
+                print(f"   You'll need to fine-tune or retrain for your custom dataset")
         else:
             # Load architecture only (for training from scratch)
             self.model = YOLO(f'{model_name}.yaml')
