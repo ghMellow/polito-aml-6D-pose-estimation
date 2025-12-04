@@ -116,9 +116,13 @@ class CustomDataset(Dataset):
         mask = np.array(mask, dtype=np.uint8)
         return torch.from_numpy(mask)
     
-    def load_gt_data(self, gt_path):
+    def load_gt_data(self, gt_path, sample_id):
         """
-        Load ground truth data from gt.yml file.
+        Load ground truth data from gt.yml file for a specific sample.
+        
+        Args:
+            gt_path: Path to gt.yml file
+            sample_id: Sample ID to extract from the YAML
         
         Returns:
             list: List of dicts, each containing rotation matrix, translation vector, bbox, and obj_id
@@ -129,14 +133,16 @@ class CustomDataset(Dataset):
         if not gt_data:
             return []
         
-        # Extract sample_id from filename (e.g., gt.yml is always in a folder like "0000/")
         # The YAML structure is: {sample_id_as_int: [list_of_objects]}
         # For example: {0: [{obj_data}], 1: [{obj_data}]}
         
         if isinstance(gt_data, dict):
-            # Get the first key (might be int or string)
-            first_key = list(gt_data.keys())[0]
-            obj_list = gt_data[first_key]
+            # Get the specific sample_id key
+            if sample_id not in gt_data:
+                print(f"⚠️ Warning: sample_id {sample_id} not found in gt.yml")
+                return []
+            
+            obj_list = gt_data[sample_id]
             
             # obj_list should be a list of objects
             if not isinstance(obj_list, list):
@@ -173,9 +179,13 @@ class CustomDataset(Dataset):
         
         return all_objects
     
-    def load_camera_intrinsics(self, info_path):
+    def load_camera_intrinsics(self, info_path, sample_id):
         """
-        Load camera intrinsic parameters.
+        Load camera intrinsic parameters for a specific sample.
+        
+        Args:
+            info_path: Path to info.yml file
+            sample_id: Sample ID to extract from the YAML
         
         Returns:
             dict: Camera matrix and depth scale
@@ -188,9 +198,12 @@ class CustomDataset(Dataset):
         
         # Same parsing logic as load_gt_data
         if isinstance(info_data, dict):
-            # Get the first key (might be int or string)
-            first_key = list(info_data.keys())[0]
-            obj_list = info_data[first_key]
+            # Get the specific sample_id key
+            if sample_id not in info_data:
+                print(f"⚠️ Warning: sample_id {sample_id} not found in info.yml")
+                return None
+            
+            obj_list = info_data[sample_id]
             
             # obj_list should be a list of objects
             if isinstance(obj_list, list) and len(obj_list) > 0:
@@ -252,11 +265,11 @@ class CustomDataset(Dataset):
         depth = self.load_depth(depth_path) if depth_path.exists() else None
         mask = self.load_mask(mask_path) if mask_path.exists() else None
         
-        # Load ground truth (now returns list of all objects)
-        gt_objects = self.load_gt_data(gt_path) if gt_path.exists() else []
+        # Load ground truth (now returns list of all objects for this specific sample_id)
+        gt_objects = self.load_gt_data(gt_path, sample_id) if gt_path.exists() else []
         
-        # Load camera intrinsics
-        cam_data = self.load_camera_intrinsics(info_path) if info_path.exists() else {}
+        # Load camera intrinsics for this specific sample_id
+        cam_data = self.load_camera_intrinsics(info_path, sample_id) if info_path.exists() else {}
         
         # Build sample dictionary
         sample = {
