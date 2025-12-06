@@ -1,1 +1,27 @@
+# Core Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
 
+# Object Detection
+ultralytics>=8.0.0
+
+# Computer Vision
+opencv-python>=4.8.0
+pillow>=10.0.0
+
+# Data Processing
+numpy>=1.24.0
+pyyaml>=6.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# Machine Learning
+scikit-learn>=1.3.0
+
+# Utilities
+tqdm>=4.65.0
+psutil>=5.9.0  # For RAM detection in adaptive caching
+
+# Optional: For downloading datasets
+gdown>=4.7.0

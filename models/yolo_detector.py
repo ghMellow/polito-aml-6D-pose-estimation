@@ -1,7 +1,7 @@
 """
-YOLOv8 Object Detection Wrapper
+YOLO11 Object Detection Wrapper
 
-This module provides a wrapper around Ultralytics YOLOv8 for object detection
+This module provides a wrapper around Ultralytics YOLO11 for object detection
 as a baseline model. This will be extended later to include rotation prediction.
 """
 
@@ -13,16 +13,23 @@ from ultralytics import YOLO
 from typing import List, Dict, Optional, Tuple
 import cv2
 
+# Import Config for device management
+try:
+    from config import Config
+    DEFAULT_DEVICE = Config.DEVICE
+except ImportError:
+    DEFAULT_DEVICE = 'cpu'
+
 
 class YOLODetector:
     """
-    YOLOv8 Object Detection Wrapper.
+    YOLO11 Object Detection Wrapper.
     
-    This class wraps the Ultralytics YOLOv8 model for object detection.
+    This class wraps the Ultralytics YOLO11 model for object detection.
     It serves as the baseline model for 6D pose estimation.
     
     Args:
-        model_name (str): YOLOv8 model variant ('yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x')
+        model_name (str): YOLO11 model variant ('yolo11n', 'yolo11s', 'yolo11m', 'yolo11l', 'yolo11x')
         pretrained (bool): Whether to use pretrained weights
         num_classes (int): Number of object classes in your dataset
         device (str): Device to run the model on ('cpu', 'cuda', 'mps')
@@ -30,15 +37,15 @@ class YOLODetector:
     
     def __init__(
         self,
-        model_name: str = 'yolov8n',
+        model_name: str = 'yolo11n',
         pretrained: bool = True,
         num_classes: int = 13,  # LineMOD has 13 objects
-        device: str = 'cpu',
+        device: Optional[str] = None,
         weights_dir: Optional[str] = None
     ):
         self.model_name = model_name
         self.num_classes = num_classes
-        self.device = device
+        self.device = device if device is not None else DEFAULT_DEVICE
         
         # Set weights directory (use checkpoints dir to avoid cluttering project root)
         if weights_dir is None:
@@ -51,8 +58,16 @@ class YOLODetector:
         from ultralytics.utils import SETTINGS
         original_weights_dir = SETTINGS.get('weights_dir', None)
         
-        # Initialize YOLOv8 model
-        if pretrained:
+        # Initialize yolo8 model
+        # Check if model_name is a path to a custom weights file
+        model_path = Path(model_name)
+        is_custom_path = (model_path.suffix == '.pt') and (model_path.exists() or model_path.is_absolute())
+        
+        if is_custom_path:
+            # Loading custom weights (e.g., fine-tuned model)
+            print(f"✅ Loading custom weights from: {model_path}")
+            self.model = YOLO(str(model_path))
+        elif pretrained:
             # Check if weights already exist locally
             weights_path = self.weights_dir / f'{model_name}.pt'
             
@@ -80,7 +95,56 @@ class YOLODetector:
             print(f"✅ Initialized {model_name} architecture (no pretrained weights)")
         
         # Move model to device
-        self.model.to(device)
+        self.model.to(self.device)
+    
+    def freeze_backbone(self, freeze_until_layer: int = 10):
+        """
+        Freeze backbone layers for fine-tuning.
+        Only the detection head will be trainable.
+        
+        Args:
+            freeze_until_layer (int): Freeze layers 0 to freeze_until_layer-1
+                                     YOLO structure: layers 0-9 are backbone,
+                                     layers 10+ are neck/head
+        
+        Returns:
+            dict: Parameter statistics (total, frozen, trainable)
+        """
+        print(f"🔒 Freezing backbone until layer {freeze_until_layer}...")
+        
+        # Access the underlying model
+        model = self.model.model
+        
+        # Freeze parameters by layer name
+        # YOLO structure: model.0, model.1, ..., model.22
+        # Backbone is typically layers 0-9
+        for name, param in model.named_parameters():
+            # Extract layer number from parameter name (e.g., "model.3.conv.weight" -> 3)
+            if name.startswith('model.'):
+                parts = name.split('.')
+                if len(parts) >= 2 and parts[1].isdigit():
+                    layer_num = int(parts[1])
+                    if layer_num < freeze_until_layer:
+                        param.requires_grad = False
+                    else:
+                        param.requires_grad = True
+        
+        # Count parameters
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        frozen_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+        total_params = trainable_params + frozen_params
+        
+        print(f"\n📊 Parameter Statistics:")
+        print(f"   Total: {total_params:,}")
+        print(f"   Frozen: {frozen_params:,} ({frozen_params/total_params*100:.1f}%)")
+        print(f"   Trainable: {trainable_params:,} ({trainable_params/total_params*100:.1f}%)")
+        print(f"\n✅ Backbone frozen! Only detection head will be trained.")
+        
+        return {
+            'total': total_params,
+            'frozen': frozen_params,
+            'trainable': trainable_params
+        }
         
     def train(
         self,
@@ -88,7 +152,7 @@ class YOLODetector:
         epochs: int = 100,
         imgsz: int = 640,
         batch_size: int = 16,
-        project: str = './runs/detect',
+        project: str = './checkpoints/yolo',
         name: str = 'yolo_baseline',
         **kwargs
     ):
@@ -107,7 +171,7 @@ class YOLODetector:
         Returns:
             Results object containing training metrics
         """
-        print(f"\n🚂 Starting YOLOv8 training...")
+        print(f"\n🚂 Starting YOLO training...")
         print(f"   Model: {self.model_name}")
         print(f"   Epochs: {epochs}")
         print(f"   Image size: {imgsz}")
@@ -219,7 +283,7 @@ class YOLODetector:
         Returns:
             Validation metrics
         """
-        print(f"\n📊 Validating YOLOv8 model...")
+        print(f"\n📊 Validating YOLO model...")
         
         metrics = self.model.val(
             data=data_yaml,
@@ -272,10 +336,10 @@ class YOLODetector:
         Args:
             save_path (str): Path to save checkpoint
         """
-        # YOLOv8 automatically saves checkpoints during training
+        # YOLO automatically saves checkpoints during training
         # This method is for manual saving if needed
         print(f"💾 Model checkpoints are saved during training")
-        print(f"   Check: runs/detect/{self.model_name}/weights/")
+        print(f"   Check: checkpoints/yolo/{self.model_name}/weights/")
     
     @property
     def model_info(self) -> Dict:
