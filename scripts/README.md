@@ -48,9 +48,6 @@ Script per il training del modello di pose estimation (PoseEstimator).
 
 **Output:** Modello PoseEstimator in `checkpoints/`
 
-### `train.py`
-⚠️ **File vuoto** - Placeholder per script di training futuro o unificato.
-
 ### `eval.py`
 ⚠️ **File vuoto** - Placeholder per script di evaluation futuro.
 

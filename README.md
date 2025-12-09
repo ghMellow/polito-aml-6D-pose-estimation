@@ -17,49 +17,64 @@ The implementation follows a modular structure with clear separation of concerns
 ```
 polito-aml-6D_pose_estimation/
 ├── checkpoints/                  # 💾 MODEL CHECKPOINTS (created during training)
-│   ├── pretrained/               # Pretrained weights (e.g., yolo11n.pt)
-│   ├── yolo/                     # YOLO fine-tuned models (saved here, not in runs/)
-│   │   └── yolo_linemod/         # Training run folder
-│   │       └── weights/          # best.pt, last.pt
+│   ├── pretrained/               # Pretrained weights (yolo11n.pt, yolov8n.pt)
+│   ├── yolo/                     # YOLO fine-tuned models (organized structure)
+│   │   └── yolo_head_only/       # Training run folder (auto-organized after training)
+│   │       ├── plots/            # Training curves (F1, PR, confusion matrix)
+│   │       ├── training_samples/ # Sample training batches (JPG)
+│   │       ├── validation_samples/  # Sample validation batches (JPG)
+│   │       ├── weights/          # Model weights (best.pt, last.pt)
+│   │       ├── args.yaml         # Training configuration
+│   │       └── results.csv       # Per-epoch metrics
 │   ├── best_model.pth            # Best PoseEstimator model (gitignored)
 │   └── checkpoint_epoch_N.pth    # Periodic PoseEstimator checkpoints (gitignored)
 │
 ├── data/                         # 📁 DATASET FILES (LineMOD subset - download separately)
 │   ├── .gitkeep
-│   └── ...                       # RGB-D images, bounding boxes, masks, 3D models
-|
+│   └── Linemod_preprocessed/     # LineMOD dataset
+│       ├── data/                 # RGB-D images (01-15 objects)
+│       ├── models/               # 3D object models (.ply)
+│       └── yolo_symlinks/        # YOLO-format dataset (symlinks)
+│           ├── images/           # train/, val/ splits
+│           ├── labels/           # YOLO annotations
+│           └── data.yaml         # Dataset config
+│
 ├── dataset/                      # 📦 DATASET MODULE
 │   ├── __init__.py               # Dataset exports
-│   └── custom_dataset.py         # PyTorch Dataset class for data loading
+│   ├── custom_dataset.py         # PyTorch Dataset for pose estimation
+│   └── linemod_yolo_dataset.py   # YOLO dataset preparation
 │
 ├── models/                       # 🧠 MODELS MODULE
 │   ├── __init__.py               # Model exports
-│   ├── yolo_detector.py          # YOLO-based object detection
-│   └── pose_estimator.py         # 6D pose estimation model (ResNet-50 + regression head)
-│
-├── utils/                        # 🛠️ UTILITIES MODULE
-│   ├── __init__.py               # Utility exports
-│   ├── download_dataset.py       # Dataset downloader
-│   ├── transforms.py             # Pose transformations (quaternion, rotation matrix, cropping)
-│   ├── losses.py                 # Loss functions (translation + rotation loss)
-│   └── metrics.py                # Evaluation metrics (ADD, ADD-S)
-│
-├── scripts/                      # 🚀 EXECUTABLE SCRIPTS
-│   ├── train.py                  # 🚂 Training script (main training loop with CLI)
-│   ├── train_pose.py             # 🎯 Pose estimation training (AdamW + mixed precision)
-│   └── eval.py                   # 📊 Evaluation script (evaluation with CLI)
+│   ├── yolo_detector.py          # YOLO11-based object detection (freeze/train/validate)
+│   └── pose_estimator.py         # 6D pose estimation (ResNet-50 + regression head)
 │
 ├── notebooks/                    # 📓 JUPYTER NOTEBOOKS
 │   ├── colab_training.ipynb      # Google Colab training workflow
 │   └── Enhancing_6DPose_Estimation.ipynb  # Educational notebook
 │
-├── test/                         # 🧪 TEST NOTEBOOKS
-│   ├── test_local_dataset.ipynb  # Dataset testing
-│   ├── test_yolo.ipynb           # YOLO detection testing
-│   └── test_pose_estimation.ipynb # Pose estimation testing & visualization
+├── notebooks test/               # 🧪 TEST NOTEBOOKS
+│   ├── test_explore_dataset.ipynb       # Dataset exploration & statistics
+│   ├── test_yolo1_pretrained.ipynb      # YOLO pretrained detection baseline
+│   ├── test_yolo2_finetuning.ipynb      # YOLO fine-tuning & validation (mAP metrics)
+│   └── test_yolo3_pose_estimation.ipynb # Pose estimation testing & 3D visualization
+|
+├── scripts/                      # 🚀 EXECUTABLE SCRIPTS
+│   ├── train_yolo.py             # 🎯 YOLO fine-tuning script
+│   ├── train_pose.py             # 🎯 Pose estimation training (AdamW + mixed precision)
+│   ├── prepare_yolo_symlinks.py  # Create YOLO dataset with symlinks
+│   └── eval.py                   # 📊 Evaluation script
+|
+├── utils/                        # 🛠️ UTILITIES MODULE
+│   ├── __init__.py               # Utility exports
+│   ├── download_dataset.py       # Dataset downloader
+│   ├── transforms.py             # Pose transformations (quaternion, rotation, cropping)
+│   ├── losses.py                 # Loss functions (translation + rotation)
+│   ├── metrics.py                # Evaluation metrics (ADD, ADD-S)
+│   ├── bbox_utils.py             # Bounding box utilities
+│   └── organize_yolo_results.py  # Auto-organize YOLO outputs into subdirectories
 │
-├── config.py                     # ⚙️ CONFIGURATION (hyperparameters for detection & pose)
-├── pyproject.toml                # 📦 PROJECT METADATA (Poetry configuration)
+├── config.py                     # ⚙️ CONFIGURATION (hyperparameters, paths, M4 optimizations)
 ├── requirements.txt              # 📋 PYTHON DEPENDENCIES (pip install -r requirements.txt)
 ├── .gitignore                    # 🚫 GIT IGNORE (data/, checkpoints/*.pth, wandb/)
 │

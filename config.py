@@ -18,8 +18,6 @@ class Config:
     
     # ==================== Dataset ====================
     NUM_CLASSES = 13  # LineMOD has 13 objects
-    TRAIN_RATIO = 0.8
-    RANDOM_SEED = 42
     
     # LineMOD objects unified mapping (single source of truth)
     # Folders 03 and 07 are missing in LineMOD dataset
@@ -47,7 +45,6 @@ class Config:
     
     # ==================== YOLO Model ====================
     YOLO_MODEL = 'yolo11n'  # Options: yolo11n, yolo11s, yolo11m (11n is nano - smallest and fastest)
-    PRETRAINED = True
     
     # ==================== Adaptive Helpers ====================
     @staticmethod
@@ -86,45 +83,12 @@ class Config:
             # If psutil not available, assume enough RAM
             return True
     
-    # YOLO Fine-tuning parameters
-    YOLO_EPOCHS = 1  # Reduced for faster training (50 was too slow)
-    YOLO_LR = 0.1  # Lower learning rate for fine-tuning
-    YOLO_FREEZE_BACKBONE = True  # Freeze backbone, train only detection head
+    # YOLO Fine-tuning parameters (used in notebooks)
     YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
-    YOLO_PATIENCE = 5  # Early stopping patience
-    YOLO_CACHE = True  # Cache images in RAM for faster training
-    YOLO_WORKERS = get_optimal_workers()  # Adaptive worker count
-    
-    # Training speed optimizations
-    YOLO_BATCH_SIZE = 32  # Batch size for training
-    YOLO_IMGSZ = 416  # Smaller image size for faster training (640 default)
-    YOLO_AMP = True  # Automatic Mixed Precision for faster training
     
     # Device-specific optimizations
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
     CACHE_IMAGES = should_cache_images()  # Cache images in RAM
-    
-    # ==================== Training ====================
-    EPOCHS = 100
-    BATCH_SIZE = 16
-    IMAGE_SIZE = 640
-    LEARNING_RATE = 0.01
-    WEIGHT_DECAY = 0.0005
-    MOMENTUM = 0.937
-    
-    # Data augmentation
-    AUGMENT = True
-    MOSAIC = 1.0
-    MIXUP = 0.0
-    
-    # Training optimization
-    CACHE = True  # Cache images for faster training (RAM/disk)
-    RECT = False  # Rectangular training (can be faster)
-    CLOSE_MOSAIC = 10  # Disable mosaic in last N epochs
-    
-    # ==================== Inference ====================
-    CONF_THRESHOLD = 0.25
-    IOU_THRESHOLD = 0.45
     
     # ==================== Device ====================
     # Auto-detect best available device: CUDA > MPS (Apple Silicon) > CPU
@@ -148,16 +112,9 @@ class Config:
     DEVICE = get_device()
     NUM_WORKERS = get_optimal_workers()  # Adaptive worker count for dataloaders
     
-    # ==================== Logging ====================
+    # ==================== Logging (used by scripts) ====================
     USE_WANDB = False
     WANDB_PROJECT = '6d-pose-estimation'
-    WANDB_ENTITY = None
-    
-    SAVE_PERIOD = 10  # Save checkpoint every N epochs
-    VERBOSE = True
-    
-    # ==================== Evaluation ====================
-    EVAL_BATCH_SIZE = 32
     
     # ==================== Pose Estimation ====================
     # Model parameters
@@ -188,64 +145,6 @@ class Config:
     # Paths for 3D models
     MODELS_PATH = DATA_ROOT / 'models'
     MODELS_INFO_PATH = MODELS_PATH / 'models_info.yml'
-    
-    @classmethod
-    def get_model_config(cls):
-        """Get model-specific configuration."""
-        return {
-            'model_name': cls.YOLO_MODEL,
-            'pretrained': cls.PRETRAINED,
-            'num_classes': cls.NUM_CLASSES,
-            'device': cls.DEVICE
-        }
-    
-    @classmethod
-    def get_train_config(cls):
-        """Get training configuration."""
-        return {
-            'epochs': cls.EPOCHS,
-            'batch_size': cls.BATCH_SIZE,
-            'imgsz': cls.IMAGE_SIZE,
-            'lr0': cls.LEARNING_RATE,
-            'weight_decay': cls.WEIGHT_DECAY,
-            'momentum': cls.MOMENTUM,
-            'augment': cls.AUGMENT,
-            'mosaic': cls.MOSAIC,
-            'mixup': cls.MIXUP,
-            'workers': cls.NUM_WORKERS,
-            'device': cls.DEVICE,
-            'verbose': cls.VERBOSE
-        }
-    
-    @classmethod
-    def get_inference_config(cls):
-        """Get inference configuration."""
-        return {
-            'conf': cls.CONF_THRESHOLD,
-            'iou': cls.IOU_THRESHOLD,
-            'imgsz': cls.IMAGE_SIZE,
-            'device': cls.DEVICE
-        }
-    
-    @classmethod
-    def get_pose_config(cls):
-        """Get pose estimation configuration."""
-        return {
-            'image_size': cls.POSE_IMAGE_SIZE,
-            'backbone': cls.POSE_BACKBONE,
-            'dropout': cls.POSE_DROPOUT,
-            'batch_size': cls.POSE_BATCH_SIZE,
-            'epochs': cls.POSE_EPOCHS,
-            'lr': cls.POSE_LR,
-            'weight_decay': cls.POSE_WEIGHT_DECAY,
-            'gradient_accum_steps': cls.GRADIENT_ACCUM_STEPS,
-            'use_amp': cls.USE_AMP,
-            'lambda_trans': cls.LAMBDA_TRANS,
-            'lambda_rot': cls.LAMBDA_ROT,
-            'add_threshold': cls.ADD_THRESHOLD,
-            'symmetric_objects': cls.SYMMETRIC_OBJECTS,
-            'device': cls.DEVICE
-        }
 
 
 # Create directories if they don't exist
