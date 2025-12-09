@@ -19,10 +19,6 @@ data/
 # !checkpoints/pretrained/
 
 # YOLO pretrained weights in root (downloaded automatically)
-yolo8*.pt
-yolo8*.yaml
-yolo9*.pt
-yolo9*.yaml
 yolo11*.pt
 yolo11*.yaml
 yolo*.pt

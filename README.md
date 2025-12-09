@@ -103,7 +103,7 @@ polito-aml-6D_pose_estimation/
 
 **Models Module** (`models/`):
 
-- `yolo_detector.py`: yolo8-based object detection wrapper
+- `yolo_detector.py`: yolo-based object detection wrapper
 - `pose_estimator.py`: 6D pose estimation using ResNet-50 backbone + regression head outputting quaternion (4D) + translation (3D)
 
 **Utils Module** (`utils/`):

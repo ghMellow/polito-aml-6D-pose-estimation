@@ -5,10 +5,10 @@ Questo modulo contiene gli script eseguibili per training, evaluation e preparaz
 ## File
 
 ### `train_yolo.py`
-Script per il fine-tuning di yolo8 sul dataset LineMOD.
+Script per il fine-tuning di yolo sul dataset LineMOD.
 
 **Funzionalità:**
-- Fine-tuning di yolo8 (n/s/m/l/x) con pesi COCO pretrained
+- Fine-tuning di yolo (n/s/m/l/x) con pesi COCO pretrained
 - Supporto per freeze del backbone (transfer learning)
 - Creazione automatica di data.yaml temporaneo
 - Integrazione con `LinemodYOLODataset` (no duplicazione dati)
@@ -75,7 +75,7 @@ Script di utilità per preparare dataset YOLO con symbolic links.
 
 | Caratteristica | `train_yolo.py` | `train_pose.py` |
 |---------------|-----------------|-----------------|
-| **Modello** | yolo8 Detector | PoseEstimator (ResNet-50) |
+| **Modello** | yolo Detector | PoseEstimator (ResNet-50) |
 | **Task** | Object Detection | 6D Pose Estimation |
 | **Dataset** | `LinemodYOLODataset` | `CustomDataset` |
 | **Framework** | Ultralytics API | PyTorch custom loop |

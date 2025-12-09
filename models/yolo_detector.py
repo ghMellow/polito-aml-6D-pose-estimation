@@ -58,7 +58,7 @@ class YOLODetector:
         from ultralytics.utils import SETTINGS
         original_weights_dir = SETTINGS.get('weights_dir', None)
         
-        # Initialize yolo8 model
+        # Initialize yolo model
         # Check if model_name is a path to a custom weights file
         model_path = Path(model_name)
         is_custom_path = (model_path.suffix == '.pt') and (model_path.exists() or model_path.is_absolute())

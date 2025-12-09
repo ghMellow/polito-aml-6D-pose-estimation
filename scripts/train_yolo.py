@@ -1,7 +1,7 @@
 """
 YOLO Training Script for LineMOD Dataset
 
-Fine-tune yolo8 on LineMOD dataset using custom dataset loader.
+Fine-tune yolo on LineMOD dataset using custom dataset loader.
 No data duplication - reads directly from Linemod_preprocessed structure.
 """
 
@@ -64,7 +64,7 @@ names:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train yolo8 on LineMOD Dataset')
+    parser = argparse.ArgumentParser(description='Train yolo on LineMOD Dataset')
     
     # Data parameters
     parser.add_argument('--data_yaml', type=str, default=None,
@@ -163,7 +163,7 @@ def main():
     print(f"\n📄 Using data.yaml: {args.data_yaml}")
     
     # Create detector
-    print(f"\n🔧 Initializing yolo8 detector...")
+    print(f"\n🔧 Initializing yolo detector...")
     detector = YOLODetector(
         model_name=args.model,
         pretrained=args.pretrained,

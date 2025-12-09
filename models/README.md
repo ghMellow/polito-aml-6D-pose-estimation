@@ -28,10 +28,10 @@ Modello di deep learning per la stima della posa 6D degli oggetti.
 - `predict()`: Predizione con output formattato per inference
 
 ### `yolo_detector.py`
-Wrapper per yolo8 (Ultralytics) adattato per LineMOD.
+Wrapper per yolo (Ultralytics) adattato per LineMOD.
 
 **Caratteristiche:**
-- Interfaccia per modelli yolo8 (n/s/m/l/x variants)
+- Interfaccia per modelli yolo (n/s/m/l/x variants)
 - Gestione automatica del download dei pesi pretrained
 - Supporto per fine-tuning con freeze del backbone
 - Salvataggio dei pesi in directory personalizzata (checkpoints/)
@@ -52,7 +52,7 @@ Wrapper per yolo8 (Ultralytics) adattato per LineMOD.
 | **Task** | 6D Pose Estimation | Object Detection |
 | **Input** | Immagine croppata (224×224) | Immagine completa (416-640) |
 | **Output** | Quaternione (4D) + Traslazione (3D) | Bounding boxes + Class IDs |
-| **Backbone** | ResNet-50 (classificazione) | yolo8 (detection) |
+| **Backbone** | ResNet-50 (classificazione) | yolo (detection) |
 | **Training** | Custom PyTorch training loop | Ultralytics API |
 | **Loss** | PoseLoss (geodesic + L1) | YOLO Loss (multi-task) |
 | **Metrica** | ADD/ADD-S | mAP@0.5, Precision, Recall |

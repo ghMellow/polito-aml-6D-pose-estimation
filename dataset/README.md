@@ -27,7 +27,7 @@ Dataset PyTorch ottimizzato per il training di YOLO su LineMOD.
 - Utilizza gli split ufficiali train.txt/test.txt
 - Restituisce immagini complete con bounding box in formato YOLO normalizzato
 - Più efficiente per il training del detector (nessuna copia di file)
-- Utilizzato specificamente per il fine-tuning di yolo8
+- Utilizzato specificamente per il fine-tuning di yolo
 
 **Classe principale:** `LinemodYOLODataset(Dataset)`
 
@@ -39,7 +39,7 @@ Dataset PyTorch ottimizzato per il training di YOLO su LineMOD.
 | **Output** | RGB-D + mask + quaternione + traslazione | RGB + bounding box normalizzati |
 | **Split** | Automatico con train_ratio | Usa train.txt/test.txt ufficiali |
 | **Formato bbox** | Pixel assoluti | YOLO normalizzato (0-1) |
-| **Modello target** | PoseEstimator (ResNet-50) | yolo8 detector |
+| **Modello target** | PoseEstimator (ResNet-50) | yolo detector |
 | **Gestione depth** | ✅ Include depth map | ❌ Solo RGB |
 | **Efficienza** | Caricamento standard | Ottimizzato, no duplicazione |
 

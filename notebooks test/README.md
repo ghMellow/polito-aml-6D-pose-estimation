@@ -5,7 +5,7 @@ Questa cartella contiene Jupyter Notebooks per il testing e validazione dei comp
 ## File
 
 ### `test_yolo.ipynb`
-Notebook per testare il detector yolo8.
+Notebook per testare il detector yolo.
 
 **Test inclusi:**
 - Caricamento modello YOLO (pretrained/fine-tuned)
