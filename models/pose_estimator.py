@@ -8,7 +8,7 @@ for predicting 6D object pose (rotation as quaternion + translation).
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 
 class PoseEstimator(nn.Module):

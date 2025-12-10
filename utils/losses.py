@@ -102,7 +102,13 @@ class PoseLoss(nn.Module):
         gt_q = gt_q.contiguous()
         
         # Compute individual losses
-        loss_trans = self.translation_loss(pred_t, gt_t)
+        loss_trans = self.translation_loss(pred_t, gt_t)  # Now works in meters
+        
+        # ✅ Scale translation loss to maintain comparable magnitude with millimeters
+        # Dataset now provides translations in meters, so we scale loss by 1000
+        # to keep it in the same numerical range as before for stable training
+        loss_trans = loss_trans * 1000
+        
         loss_rot = self.rotation_loss(pred_q, gt_q)
         
         # Combined loss

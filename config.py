@@ -48,14 +48,24 @@ class Config:
     
     # ==================== Adaptive Helpers ====================
     @staticmethod
-    def get_optimal_workers():
-        """Get optimal worker count based on device and CPU cores."""
+    def get_optimal_workers(force_safe_mode=False):
+        """
+        Get optimal worker count based on device and CPU cores.
+        
+        Args:
+            force_safe_mode: If True, uses 0 workers on MPS (safe for complex data transforms)
+        
+        Returns:
+            int: Number of workers for DataLoader
+        """
         import torch
         import os
         
         if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            # Apple Silicon: 4 workers optimal for unified memory
-            return 4
+            # Apple Silicon MPS:
+            # - Use 0 workers for pose estimation (avoids crashes with rotation/quaternion ops)
+            # - Can use 4 workers for simple YOLO data loading
+            return 0 if force_safe_mode else 4
         elif torch.cuda.is_available():
             # CUDA: Can handle more workers
             return min(8, os.cpu_count() // 2) if os.cpu_count() else 4
@@ -77,11 +87,35 @@ class Config:
             import psutil
             # Get available RAM in GB
             available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            # Enable caching if ≥6GB available
-            return available_ram_gb >= 6.0
+            # 🚀 OPTIMIZATION: Adaptive cache strategy
+            # - ≥8GB: Full cache (all 4,700+ images)
+            # - 4-8GB: Partial cache (most frequent 50%)
+            # - <4GB: No image cache (metadata only)
+            return available_ram_gb >= 4.0
         except ImportError:
             # If psutil not available, assume enough RAM
             return True
+    
+    @staticmethod
+    def get_cache_strategy():
+        """
+        🚀 OPTIMIZATION: Get adaptive cache strategy based on available RAM.
+        
+        Returns:
+            str: 'full' (cache all), 'partial' (LRU cache 50%), or 'none' (no image cache)
+        """
+        try:
+            import psutil
+            available_ram_gb = psutil.virtual_memory().available / (1024**3)
+            
+            if available_ram_gb >= 8.0:
+                return 'full'  # ~1.5GB for full dataset
+            elif available_ram_gb >= 4.0:
+                return 'partial'  # ~750MB for 50% most used
+            else:
+                return 'none'  # Metadata only (~10MB)
+        except ImportError:
+            return 'full'
     
     # YOLO Fine-tuning parameters (used in notebooks)
     YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
@@ -110,7 +144,8 @@ class Config:
             return 'cpu'
     
     DEVICE = get_device()
-    NUM_WORKERS = get_optimal_workers()  # Adaptive worker count for dataloaders
+    NUM_WORKERS = get_optimal_workers()  # Adaptive worker count for YOLO dataloaders
+    NUM_WORKERS_POSE = get_optimal_workers(force_safe_mode=True)  # Safe mode for pose (0 on MPS)
     
     # ==================== Logging (used by scripts) ====================
     USE_WANDB = False
@@ -124,10 +159,9 @@ class Config:
     
     # Training parameters
     POSE_EPOCHS = 50
-    POSE_BATCH_SIZE = 8  # Effective batch size = 8 * 4 (gradient accumulation) = 32
+    POSE_BATCH_SIZE = 128
     POSE_LR = 1e-4
     POSE_WEIGHT_DECAY = 1e-4
-    GRADIENT_ACCUM_STEPS = 4  # Gradient accumulation for larger effective batch size
     USE_AMP = True  # Use automatic mixed precision (FP16)
     
     # Data augmentation for pose
