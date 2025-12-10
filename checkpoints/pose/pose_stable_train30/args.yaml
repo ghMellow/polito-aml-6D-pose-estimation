@@ -1,0 +1,17 @@
+accumulation_steps: 4
+batch_size: 128
+crop_margin: 0.1
+device: mps
+dropout: 0.3
+effective_batch_size: 512
+epochs: 30
+freeze_backbone: false
+image_size: 224
+lambda_rot: 10.0
+lambda_trans: 1.0
+lr_backbone: 1.0e-05
+lr_head: 0.0001
+phase: Phase 1 - Optimized
+scheduler: ReduceLROnPlateau
+use_amp: false
+warmup_epochs: 5

@@ -17,6 +17,7 @@ data/
 # checkpoints/yolo/*/
 # !checkpoints/.gitkeep
 # !checkpoints/pretrained/
+*.zip
 
 # YOLO pretrained weights in root (downloaded automatically)
 yolo11*.pt
