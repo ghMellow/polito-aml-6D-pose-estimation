@@ -155,22 +155,23 @@ class Config:
     # Model parameters
     POSE_IMAGE_SIZE = 224  # Input size for ResNet-50
     POSE_BACKBONE = 'resnet50'
-    POSE_DROPOUT = 0.3
+    POSE_DROPOUT = 0.5
     
     # Training parameters
-    POSE_EPOCHS = 50
-    POSE_BATCH_SIZE = 128
+    POSE_EPOCHS = 100
+    POSE_BATCH_SIZE = 64 
+    ACCUMULATION_STEPS = 2
     POSE_LR = 1e-4
-    POSE_WEIGHT_DECAY = 1e-4
+    POSE_WEIGHT_DECAY = 5e-4  # da 1e-4 a 5e-4
     USE_AMP = True  # Use automatic mixed precision (FP16)
     
     # Data augmentation for pose
-    POSE_CROP_MARGIN = 0.1  # 10% margin around bbox
+    POSE_CROP_MARGIN = 0.15  # da 0.1 a 0.15 (più variabilità)
     POSE_COLOR_JITTER = True
     
     # Loss weights
     LAMBDA_TRANS = 1.0  # Translation loss weight
-    LAMBDA_ROT = 10.0  # Rotation loss weight
+    LAMBDA_ROT = 50.0   # Rotation loss weight (10 -> 50)
     
     # Evaluation
     ADD_THRESHOLD = 0.1  # 10% of object diameter
