@@ -12,8 +12,15 @@ class Config:
     """Base configuration class."""
     
     # ==================== Paths ====================
-    PROJECT_ROOT = Path(__file__).parent
-    DATA_ROOT = PROJECT_ROOT / 'data' / 'Linemod_preprocessed'
+    # Config è in root/, quindi parent è PROJECT_ROOT
+    # resolve():
+    # - Garantisce coerenza su Windows/macOS/Linux
+    # - Converte il path in assoluto
+    # - Elimina . e ..
+    # - Risolve i symlink
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    DATA_ROOT = PROJECT_ROOT / 'data'
+    LINEMOD_ROOT = DATA_ROOT / 'Linemod_preprocessed'
     CHECKPOINT_DIR = PROJECT_ROOT / 'checkpoints'
     
     # ==================== Dataset ====================
