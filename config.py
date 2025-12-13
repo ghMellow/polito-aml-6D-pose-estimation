@@ -19,8 +19,8 @@ class Config:
     # - Elimina . e ..
     # - Risolve i symlink
     PROJECT_ROOT = Path(__file__).resolve().parent
-    DATA_ROOT = PROJECT_ROOT / 'data'
-    LINEMOD_ROOT = DATA_ROOT / 'Linemod_preprocessed'
+    DATASETS_DIR = PROJECT_ROOT / 'data'
+    LINEMOD_ROOT = DATASETS_DIR / 'Linemod_preprocessed'
     CHECKPOINT_DIR = PROJECT_ROOT / 'checkpoints'
     PRETRAINED_DIR = CHECKPOINT_DIR / 'pretrained'  # For pretrained model weights
     

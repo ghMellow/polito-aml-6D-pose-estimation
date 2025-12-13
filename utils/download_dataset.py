@@ -16,7 +16,7 @@ from pathlib import Path
 # Import Config for default paths
 try:
     from config import Config
-    DEFAULT_OUTPUT_DIR = str(Config.DATA_ROOT)
+    DEFAULT_OUTPUT_DIR = str(Config.DATASETS_DIR)
 except ImportError:
     DEFAULT_OUTPUT_DIR = './data'
 
@@ -26,7 +26,7 @@ def download_linemod_dataset(output_dir=None):
     Download and extract LineMOD preprocessed dataset.
     
     Args:
-        output_dir (str): Directory where dataset will be saved (default: from Config.DATA_ROOT)
+        output_dir (str): Directory where dataset will be saved (default: from Config.DATASETS_DIR)
     """
     # Use Config default if not specified
     if output_dir is None:

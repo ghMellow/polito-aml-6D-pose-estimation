@@ -186,10 +186,10 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Prepare YOLO dataset with symlinks')
-    parser.add_argument('--data_dir', type=str, default=str(Config.DATA_ROOT),
+    parser.add_argument('--data_dir', type=str, default=str(Config.DATASETS_DIR),
                        help='Path to Linemod_preprocessed root')
     parser.add_argument('--output_dir', type=str, 
-                       default=str(Config.DATA_ROOT / 'yolo_symlinks'),
+                       default=str(Config.DATASETS_DIR / 'yolo_symlinks'),
                        help='Output directory for YOLO format')
     parser.add_argument('--no-symlinks', action='store_true',
                        help='Copy files instead of creating symlinks')
