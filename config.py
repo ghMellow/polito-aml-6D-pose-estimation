@@ -22,9 +22,14 @@ class Config:
     DATA_ROOT = PROJECT_ROOT / 'data'
     LINEMOD_ROOT = DATA_ROOT / 'Linemod_preprocessed'
     CHECKPOINT_DIR = PROJECT_ROOT / 'checkpoints'
+    PRETRAINED_DIR = CHECKPOINT_DIR / 'pretrained'  # For pretrained model weights
     
     # ==================== Dataset ====================
     NUM_CLASSES = 13  # LineMOD has 13 objects
+    
+    # Dataset splits and sampling
+    TRAIN_TEST_RATIO = 0.8  # 80% train, 20% test (for random splits)
+    RANDOM_SEED = 42  # For reproducibility
     
     # LineMOD objects unified mapping (single source of truth)
     # Folders 03 and 07 are missing in LineMOD dataset
@@ -52,6 +57,36 @@ class Config:
     
     # ==================== YOLO Model ====================
     YOLO_MODEL = 'yolo11n'  # Options: yolo11n, yolo11s, yolo11m (11n is nano - smallest and fastest)
+    
+    # Detection thresholds
+    YOLO_CONF_THRESHOLD = 0.25  # Confidence threshold for detections
+    YOLO_IOU_THRESHOLD = 0.45   # IoU threshold for NMS
+    
+    # Architecture
+    YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
+    
+    # Training hyperparameters
+    YOLO_EPOCHS = 10  # Poche epoche per test veloce
+    YOLO_BATCH_SIZE = 32
+    YOLO_IMG_SIZE = 416
+    YOLO_PATIENCE = 10  # Early stopping patience
+    
+    # Learning rate (ottimizzato per fine-tuning)
+    YOLO_LR_INITIAL = 0.01   # Learning rate iniziale (lr0) - 10x più basso di 0.1 per fine-tuning
+    YOLO_LR_FINAL = 0.01     # Learning rate finale (lrf)
+    
+    # Warmup strategy
+    YOLO_WARMUP_EPOCHS = 3
+    YOLO_WARMUP_MOMENTUM = 0.8
+    YOLO_WARMUP_BIAS_LR = 0.1
+    
+    # Scheduler
+    YOLO_COS_LR = True  # Cosine annealing learning rate scheduler
+    
+    # Optimizer
+    YOLO_OPTIMIZER = 'SGD'  # Options: 'SGD', 'Adam', 'AdamW'
+    YOLO_MOMENTUM = 0.937
+    YOLO_WEIGHT_DECAY = 0.0005
     
     # ==================== Adaptive Helpers ====================
     @staticmethod
@@ -123,11 +158,8 @@ class Config:
                 return 'none'  # Metadata only (~10MB)
         except ImportError:
             return 'full'
-    
-    # YOLO Fine-tuning parameters (used in notebooks)
-    YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
-    
-    # Device-specific optimizations
+        
+    # Adaptive device-specific helper optimizations
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
     CACHE_IMAGES = should_cache_images()  # Cache images in RAM
     
@@ -162,6 +194,8 @@ class Config:
     # Model parameters
     POSE_IMAGE_SIZE = 224  # Input size for ResNet-50
     POSE_BACKBONE = 'resnet50'
+    POSE_PRETRAINED = True  # Use ImageNet pretrained weights for ResNet-50
+    POSE_FREEZE_BACKBONE = False  # If True, freeze backbone and only train head (faster)
     POSE_DROPOUT = 0.5
     
     # Training parameters
@@ -185,7 +219,7 @@ class Config:
     # SYMMETRIC_OBJECTS now derived from LINEMOD_OBJECTS (defined above)
     
     # Paths for 3D models
-    MODELS_PATH = DATA_ROOT / 'models'
+    MODELS_PATH = LINEMOD_ROOT / 'models'
     MODELS_INFO_PATH = MODELS_PATH / 'models_info.yml'
 
 

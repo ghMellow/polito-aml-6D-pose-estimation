@@ -20,6 +20,8 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 
+from config import Config
+
 
 class CustomDataset(Dataset):
     """
@@ -34,21 +36,22 @@ class CustomDataset(Dataset):
     Args:
         dataset_root (str): Path to dataset root directory
         split (str): 'train' or 'test'
-        train_ratio (float): Ratio of training samples (default: 0.8)
-        seed (int): Random seed for reproducibility (default: 42)
+        train_ratio (float): Ratio of training samples (default: from Config.TRAIN_TEST_RATIO)
+        seed (int): Random seed for reproducibility (default: from Config.RANDOM_SEED)
         transform: Optional transform to be applied on images
         cache_images (bool): Cache images in RAM (default: from Config.CACHE_IMAGES)
     """
     
-    def __init__(self, dataset_root, split='train', train_ratio=0.8, seed=42, 
+    def __init__(self, dataset_root, split='train', train_ratio=None, seed=None, 
                  transform=None, cache_images=None):
         self.dataset_root = Path(dataset_root)
         self.split = split
-        self.train_ratio = train_ratio
-        self.seed = seed
         
-        # Import config for caching setting
-        from config import Config
+        # Use Config defaults if not specified
+        self.train_ratio = train_ratio if train_ratio is not None else Config.TRAIN_TEST_RATIO
+        self.seed = seed if seed is not None else Config.RANDOM_SEED
+        
+        # Caching setting from Config
         if cache_images is None:
             cache_images = Config.CACHE_IMAGES
         self.cache_images = cache_images
@@ -358,26 +361,30 @@ class CustomDataset(Dataset):
         return sample
 
 
-def create_dataloaders(dataset_root, batch_size=8, num_workers=None, train_ratio=0.8, seed=42):
+def create_dataloaders(dataset_root, batch_size=8, num_workers=None, 
+                       train_ratio=None, seed=None):
     """
     Create train and test DataLoaders.
     
     Args:
         dataset_root (str): Path to dataset root
         batch_size (int): Batch size
-        num_workers (int): Number of worker processes (default: from Config)
-        train_ratio (float): Ratio of training samples
-        seed (int): Random seed
+        num_workers (int): Number of worker processes (default: from Config.NUM_WORKERS)
+        train_ratio (float): Ratio of training samples (default: from Config.TRAIN_TEST_RATIO)
+        seed (int): Random seed (default: from Config.RANDOM_SEED)
     
     Returns:
         tuple: (train_loader, test_loader)
     """
     from torch.utils.data import DataLoader
-    from config import Config
     
     # Use Config defaults if not specified
     if num_workers is None:
         num_workers = Config.NUM_WORKERS
+    if train_ratio is None:
+        train_ratio = Config.TRAIN_TEST_RATIO
+    if seed is None:
+        seed = Config.RANDOM_SEED
     
     # Create datasets
     train_dataset = CustomDataset(dataset_root, split='train', train_ratio=train_ratio, seed=seed)
@@ -423,15 +430,18 @@ class PoseDataset(Dataset):
         dataset_root (str): Path to dataset root directory
         split (str): 'train' or 'test' (uses official split files)
         transform: Transform to apply to cropped images
-        crop_margin (float): Margin to add around bbox (default: 0.1 = 10%)
-        output_size (int): Size for cropped images (default: 224)
+        crop_margin (float): Margin to add around bbox (default: from Config.POSE_CROP_MARGIN)
+        output_size (int): Size for cropped images (default: from Config.POSE_IMAGE_SIZE)
     """
     
     def __init__(self, dataset_root, split='train', transform=None, 
-                 crop_margin=0.1, output_size=224):
+                 crop_margin=None, output_size=None):
         self.dataset_root = Path(dataset_root)
         self.split = split
-        self.crop_margin = crop_margin
+        
+        # Use Config defaults if not specified
+        self.crop_margin = crop_margin if crop_margin is not None else Config.POSE_CROP_MARGIN
+        output_size = output_size if output_size is not None else Config.POSE_IMAGE_SIZE
         self.output_size = (output_size, output_size)
         
         # Import transforms here to avoid circular imports
@@ -643,27 +653,32 @@ class PoseDataset(Dataset):
         }
 
 
-def create_pose_dataloaders(dataset_root, batch_size=8, num_workers=None, 
-                            crop_margin=0.1, output_size=224):
+def create_pose_dataloaders(dataset_root, batch_size=None, num_workers=None, 
+                            crop_margin=None, output_size=None):
     """
     Create train and test DataLoaders for pose estimation.
     
     Args:
         dataset_root (str): Path to dataset root
-        batch_size (int): Batch size
-        num_workers (int): Number of worker processes (default: from Config)
-        crop_margin (float): Margin around bbox for cropping
-        output_size (int): Size for cropped images
+        batch_size (int): Batch size (default: from Config.POSE_BATCH_SIZE)
+        num_workers (int): Number of worker processes (default: from Config.NUM_WORKERS_POSE)
+        crop_margin (float): Margin around bbox for cropping (default: from Config.POSE_CROP_MARGIN)
+        output_size (int): Size for cropped images (default: from Config.POSE_IMAGE_SIZE)
     
     Returns:
         tuple: (train_loader, test_loader)
     """
     from torch.utils.data import DataLoader
-    from config import Config
     
     # Use Config defaults if not specified
+    if batch_size is None:
+        batch_size = Config.POSE_BATCH_SIZE
     if num_workers is None:
-        num_workers = Config.NUM_WORKERS
+        num_workers = Config.NUM_WORKERS_POSE
+    if crop_margin is None:
+        crop_margin = Config.POSE_CROP_MARGIN
+    if output_size is None:
+        output_size = Config.POSE_IMAGE_SIZE
     
     # Create datasets
     train_dataset = PoseDataset(

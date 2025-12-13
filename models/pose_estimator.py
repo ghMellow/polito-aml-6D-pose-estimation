@@ -10,6 +10,8 @@ import torch.nn as nn
 import torchvision.models as models
 from typing import Dict, Tuple, Optional
 
+from config import Config
+
 
 class PoseEstimator(nn.Module):
     """
@@ -20,12 +22,18 @@ class PoseEstimator(nn.Module):
         - Translation vector (3D): [tx, ty, tz]
     
     Args:
-        pretrained: Whether to use ImageNet pretrained weights
-        dropout: Dropout probability (default: 0.3)
+        pretrained: Whether to use ImageNet pretrained weights (default: from Config.POSE_PRETRAINED)
+        dropout: Dropout probability (default: from Config.POSE_DROPOUT)
+        freeze_backbone: If True, freeze backbone and only train head (default: from Config.POSE_FREEZE_BACKBONE)
     """
     
-    def __init__(self, pretrained: bool = True, dropout: float = 0.3, freeze_backbone: bool = False):
+    def __init__(self, pretrained: bool = None, dropout: float = None, freeze_backbone: bool = None):
         super(PoseEstimator, self).__init__()
+        
+        # Use Config defaults if not specified
+        pretrained = pretrained if pretrained is not None else Config.POSE_PRETRAINED
+        dropout = dropout if dropout is not None else Config.POSE_DROPOUT
+        freeze_backbone = freeze_backbone if freeze_backbone is not None else Config.POSE_FREEZE_BACKBONE
         
         # Load ResNet-50 backbone
         resnet = models.resnet50(pretrained=pretrained)
@@ -59,7 +67,7 @@ class PoseEstimator(nn.Module):
         )
         
         print(f"✅ PoseEstimator initialized")
-        print(f"   Backbone: ResNet-50 (pretrained={pretrained}, frozen={freeze_backbone})")
+        print(f"   Backbone: {Config.POSE_BACKBONE} (pretrained={pretrained}, frozen={freeze_backbone})")
         print(f"   Feature dim: {self.feature_dim}")
         print(f"   Output: 7 values (4 quaternion + 3 translation)")
         print(f"   Dropout: {dropout}")
@@ -69,7 +77,7 @@ class PoseEstimator(nn.Module):
         Forward pass.
         
         Args:
-            x: Input images (B, 3, 224, 224)
+            x: Input images (B, 3, H, W) where H=W=Config.POSE_IMAGE_SIZE (default: 224)
             
         Returns:
             quaternion: Normalized quaternion (B, 4)
@@ -96,7 +104,7 @@ class PoseEstimator(nn.Module):
         Predict pose for input images.
         
         Args:
-            x: Input images (B, 3, 224, 224)
+            x: Input images (B, 3, H, W) where H=W=Config.POSE_IMAGE_SIZE (default: 224)
             
         Returns:
             Dictionary with 'quaternion' and 'translation' keys
@@ -121,21 +129,21 @@ class PoseEstimator(nn.Module):
         }
 
 
-def create_pose_estimator(pretrained: bool = True, dropout: float = 0.3, 
-                         freeze_backbone: bool = False, device: Optional[str] = None) -> PoseEstimator:
+def create_pose_estimator(pretrained: bool = None, dropout: float = None, 
+                         freeze_backbone: bool = None, device: Optional[str] = None) -> PoseEstimator:
     """
     Create and initialize PoseEstimator model.
     
     Args:
-        pretrained: Whether to use ImageNet pretrained weights
-        dropout: Dropout probability
-        freeze_backbone: If True, freeze backbone and only train head (faster)
-        device: Device to move model to (None = use Config.DEVICE)
+        pretrained: Whether to use ImageNet pretrained weights (default: from Config.POSE_PRETRAINED)
+        dropout: Dropout probability (default: from Config.POSE_DROPOUT)
+        freeze_backbone: If True, freeze backbone and only train head (default: from Config.POSE_FREEZE_BACKBONE)
+        device: Device to move model to (default: from Config.DEVICE)
         
     Returns:
         PoseEstimator model
     """
-    from config import Config
+    # Use Config defaults if not specified
     if device is None:
         device = Config.DEVICE
     
@@ -155,12 +163,13 @@ if __name__ == '__main__':
     # Test model creation
     print("Testing PoseEstimator model...\n")
     
-    # Create model (uses Config.DEVICE)
-    model = create_pose_estimator(pretrained=True)
+    # Create model (uses Config defaults)
+    model = create_pose_estimator()
     
     # Test forward pass
     batch_size = 4
-    x = torch.randn(batch_size, 3, 224, 224)
+    img_size = Config.POSE_IMAGE_SIZE
+    x = torch.randn(batch_size, 3, img_size, img_size)
     
     print(f"\n🧪 Testing forward pass:")
     print(f"   Input shape: {x.shape}")

@@ -13,14 +13,25 @@ import zipfile
 import gdown
 from pathlib import Path
 
+# Import Config for default paths
+try:
+    from config import Config
+    DEFAULT_OUTPUT_DIR = str(Config.DATA_ROOT)
+except ImportError:
+    DEFAULT_OUTPUT_DIR = './data'
 
-def download_linemod_dataset(output_dir='./data'):
+
+def download_linemod_dataset(output_dir=None):
     """
     Download and extract LineMOD preprocessed dataset.
     
     Args:
-        output_dir (str): Directory where dataset will be saved
+        output_dir (str): Directory where dataset will be saved (default: from Config.DATA_ROOT)
     """
+    # Use Config default if not specified
+    if output_dir is None:
+        output_dir = DEFAULT_OUTPUT_DIR
+    
     # Create output directory if it doesn't exist
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -72,8 +83,8 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description='Download LineMOD dataset')
-    parser.add_argument('--output_dir', type=str, default='./data',
-                       help='Directory where dataset will be saved (default: ./data)')
+    parser.add_argument('--output_dir', type=str, default=None,
+                       help=f'Directory where dataset will be saved (default: {DEFAULT_OUTPUT_DIR})')
     
     args = parser.parse_args()
     

@@ -10,6 +10,8 @@ import numpy as np
 from pathlib import Path
 from torch.utils.data import Dataset
 
+from config import Config
+
 
 class BaseLineMODDataset(Dataset):
     """
@@ -31,7 +33,6 @@ class BaseLineMODDataset(Dataset):
         
         # Default mapping from Config if not provided
         if folder_to_class_mapping is None:
-            from config import Config
             self.folder_to_class = Config.FOLDER_ID_TO_CLASS_ID
         else:
             self.folder_to_class = folder_to_class_mapping

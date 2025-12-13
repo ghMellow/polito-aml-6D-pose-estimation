@@ -47,9 +47,9 @@ class YOLODetector:
         self.num_classes = num_classes
         self.device = device if device is not None else DEFAULT_DEVICE
         
-        # Set weights directory (use checkpoints dir to avoid cluttering project root)
+        # Set weights directory (usa Config.PRETRAINED_DIR per evitare cluttering)
         if weights_dir is None:
-            weights_dir = Path(__file__).parent.parent / 'checkpoints' / 'pretrained'
+            weights_dir = Config.PRETRAINED_DIR
             weights_dir.mkdir(parents=True, exist_ok=True)
         self.weights_dir = Path(weights_dir)
         
@@ -149,10 +149,12 @@ class YOLODetector:
     def train(
         self,
         data_yaml: str,
-        epochs: int = 100,
-        imgsz: int = 640,
-        batch_size: int = 16,
-        project: str = './checkpoints/yolo',
+        epochs: int = None,
+        imgsz: int = None,
+        batch_size: int = None,
+        lr0: float = None,
+        lrf: float = None,
+        project: str = None,
         name: str = 'yolo_baseline',
         **kwargs
     ):
@@ -161,33 +163,68 @@ class YOLODetector:
         
         Args:
             data_yaml (str): Path to data.yaml configuration file
-            epochs (int): Number of training epochs
-            imgsz (int): Input image size
-            batch_size (int): Batch size
-            project (str): Project directory for saving results
+            epochs (int): Number of training epochs (default: Config.YOLO_EPOCHS)
+            imgsz (int): Input image size (default: Config.YOLO_IMG_SIZE)
+            batch_size (int): Batch size (default: Config.YOLO_BATCH_SIZE)
+            lr0 (float): Initial learning rate (default: Config.YOLO_LR_INITIAL)
+            lrf (float): Final learning rate (default: Config.YOLO_LR_FINAL)
+            project (str): Project directory for saving results (default: Config.CHECKPOINT_DIR/yolo)
             name (str): Name of the training run
             **kwargs: Additional arguments passed to YOLO.train()
         
         Returns:
             Results object containing training metrics
         """
+        # Use Config defaults if not specified
+        epochs = epochs if epochs is not None else Config.YOLO_EPOCHS
+        imgsz = imgsz if imgsz is not None else Config.YOLO_IMG_SIZE
+        batch_size = batch_size if batch_size is not None else Config.YOLO_BATCH_SIZE
+        lr0 = lr0 if lr0 is not None else Config.YOLO_LR_INITIAL
+        lrf = lrf if lrf is not None else Config.YOLO_LR_FINAL
+        project = project if project is not None else str(Config.CHECKPOINT_DIR / 'yolo')
+        
         print(f"\n🚂 Starting YOLO training...")
         print(f"   Model: {self.model_name}")
         print(f"   Epochs: {epochs}")
         print(f"   Image size: {imgsz}")
         print(f"   Batch size: {batch_size}")
+        print(f"   LR (initial → final): {lr0} → {lrf}")
+        print(f"   Optimizer: {Config.YOLO_OPTIMIZER}")
         print(f"   Device: {self.device}")
         
-        results = self.model.train(
-            data=data_yaml,
-            epochs=epochs,
-            imgsz=imgsz,
-            batch=batch_size,
-            project=project,
-            name=name,
-            device=self.device,
-            **kwargs
-        )
+        # Set default training parameters optimized for fine-tuning
+        default_params = {
+            'data': data_yaml,
+            'epochs': epochs,
+            'imgsz': imgsz,
+            'batch': batch_size,
+            'lr0': lr0,
+            'lrf': lrf,
+            'project': project,
+            'name': name,
+            'device': self.device,
+            
+            # Warmup strategy (from Config)
+            'warmup_epochs': Config.YOLO_WARMUP_EPOCHS,
+            'warmup_momentum': Config.YOLO_WARMUP_MOMENTUM,
+            'warmup_bias_lr': Config.YOLO_WARMUP_BIAS_LR,
+            
+            # Scheduler
+            'cos_lr': Config.YOLO_COS_LR,
+            
+            # Optimizer
+            'optimizer': Config.YOLO_OPTIMIZER,
+            'momentum': Config.YOLO_MOMENTUM,
+            'weight_decay': Config.YOLO_WEIGHT_DECAY,
+            
+            # Early stopping
+            'patience': Config.YOLO_PATIENCE,
+        }
+        
+        # Merge with user-provided kwargs (user kwargs override defaults)
+        default_params.update(kwargs)
+        
+        results = self.model.train(**default_params)
         
         print(f"✅ Training completed!")
         return results
@@ -195,9 +232,9 @@ class YOLODetector:
     def predict(
         self,
         source,
-        conf: float = 0.25,
-        iou: float = 0.45,
-        imgsz: int = 640,
+        conf: float = None,
+        iou: float = None,
+        imgsz: int = None,
         save: bool = False,
         **kwargs
     ):
@@ -206,15 +243,20 @@ class YOLODetector:
         
         Args:
             source: Input source (image path, folder, video, etc.)
-            conf (float): Confidence threshold
-            iou (float): IoU threshold for NMS
-            imgsz (int): Input image size
+            conf (float): Confidence threshold (default: Config.YOLO_CONF_THRESHOLD)
+            iou (float): IoU threshold for NMS (default: Config.YOLO_IOU_THRESHOLD)
+            imgsz (int): Input image size (default: Config.YOLO_IMG_SIZE)
             save (bool): Whether to save results
             **kwargs: Additional arguments passed to YOLO.predict()
         
         Returns:
             List of Results objects
         """
+        # Use Config defaults if not specified
+        conf = conf if conf is not None else Config.YOLO_CONF_THRESHOLD
+        iou = iou if iou is not None else Config.YOLO_IOU_THRESHOLD
+        imgsz = imgsz if imgsz is not None else Config.YOLO_IMG_SIZE
+        
         results = self.model.predict(
             source=source,
             conf=conf,
@@ -230,14 +272,14 @@ class YOLODetector:
     def detect_objects(
         self,
         image: np.ndarray,
-        conf_threshold: float = 0.25
+        conf_threshold: float = None
     ) -> List[Dict]:
         """
         Detect objects in a single image and return structured results.
         
         Args:
             image (np.ndarray): Input image (H, W, 3) in RGB format
-            conf_threshold (float): Confidence threshold
+            conf_threshold (float): Confidence threshold (default: Config.YOLO_CONF_THRESHOLD)
         
         Returns:
             List of detections, each containing:
@@ -246,6 +288,9 @@ class YOLODetector:
                 - class_id: int
                 - class_name: str
         """
+        # Use Config default if not specified
+        conf_threshold = conf_threshold if conf_threshold is not None else Config.YOLO_CONF_THRESHOLD
+        
         # Run prediction
         results = self.predict(image, conf=conf_threshold, verbose=False)
         
@@ -267,8 +312,8 @@ class YOLODetector:
     def validate(
         self,
         data_yaml: str,
-        batch_size: int = 16,
-        imgsz: int = 640,
+        batch_size: int = None,
+        imgsz: int = None,
         **kwargs
     ):
         """
@@ -276,13 +321,17 @@ class YOLODetector:
         
         Args:
             data_yaml (str): Path to data.yaml configuration file
-            batch_size (int): Batch size
-            imgsz (int): Input image size
+            batch_size (int): Batch size (default: Config.YOLO_BATCH_SIZE)
+            imgsz (int): Input image size (default: Config.YOLO_IMG_SIZE)
             **kwargs: Additional arguments passed to YOLO.val()
         
         Returns:
             Validation metrics
         """
+        # Use Config defaults if not specified
+        batch_size = batch_size if batch_size is not None else Config.YOLO_BATCH_SIZE
+        imgsz = imgsz if imgsz is not None else Config.YOLO_IMG_SIZE
+        
         print(f"\n📊 Validating YOLO model...")
         
         metrics = self.model.val(

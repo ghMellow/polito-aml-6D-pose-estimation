@@ -13,6 +13,8 @@ from PIL import Image
 import torchvision.transforms as T
 from typing import Tuple, Union
 
+from config import Config
+
 
 def rotation_matrix_to_quaternion(R: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
     """
@@ -180,8 +182,8 @@ def normalize_quaternion(q: torch.Tensor) -> torch.Tensor:
 def crop_image_from_bbox(
     image: Union[np.ndarray, Image.Image],
     bbox: Union[np.ndarray, list],
-    margin: float = 0.1,
-    output_size: Tuple[int, int] = (224, 224)
+    margin: float = None,
+    output_size: Tuple[int, int] = None
 ) -> Image.Image:
     """
     🚀 OPTIMIZED: Crop image using bounding box with margin and resize to output size.
@@ -193,12 +195,18 @@ def crop_image_from_bbox(
     Args:
         image: Input image (H, W, 3) as numpy array or PIL Image
         bbox: Bounding box [x, y, width, height]
-        margin: Margin percentage to add around bbox (default: 0.1 = 10%)
-        output_size: Output image size (height, width)
+        margin: Margin percentage to add around bbox (default: from Config.POSE_CROP_MARGIN)
+        output_size: Output image size (height, width) (default: from Config.POSE_IMAGE_SIZE)
         
     Returns:
         Cropped and resized PIL Image
     """
+    # Use Config defaults if not specified
+    if margin is None:
+        margin = Config.POSE_CROP_MARGIN
+    if output_size is None:
+        img_size = Config.POSE_IMAGE_SIZE
+        output_size = (img_size, img_size)
     # 🚀 OPTIMIZATION: Handle numpy arrays more efficiently
     is_numpy = isinstance(image, np.ndarray)
     
@@ -256,16 +264,21 @@ def crop_image_from_bbox(
     return cropped
 
 
-def get_pose_transforms(train: bool = True) -> T.Compose:
+def get_pose_transforms(train: bool = True, color_jitter: bool = None) -> T.Compose:
     """
     Get image transforms for pose estimation.
     
     Args:
         train: Whether to include training augmentations
+        color_jitter: Whether to include color jittering (default: from Config.POSE_COLOR_JITTER)
         
     Returns:
         Composed transforms
     """
+    # Use Config default if not specified
+    if color_jitter is None:
+        color_jitter = Config.POSE_COLOR_JITTER
+    
     # ImageNet normalization
     normalize = T.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -274,12 +287,15 @@ def get_pose_transforms(train: bool = True) -> T.Compose:
     
     if train:
         # Training transforms with augmentation
-        transforms = T.Compose([
-            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05),
+        aug_list = []
+        if color_jitter:
+            aug_list.append(T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05))
+        aug_list.extend([
             T.RandomHorizontalFlip(p=0.5),
             T.ToTensor(),
             normalize
         ])
+        transforms = T.Compose(aug_list)
     else:
         # Validation/test transforms (no augmentation)
         transforms = T.Compose([

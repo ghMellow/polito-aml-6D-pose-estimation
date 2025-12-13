@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 import yaml
 
+from config import Config
+
 
 def load_3d_model(model_path: Union[str, Path]) -> np.ndarray:
     """
@@ -93,7 +95,7 @@ def compute_add(
     gt_t: np.ndarray,
     model_points: np.ndarray,
     diameter: float,
-    threshold: float = 0.1,
+    threshold: float = None,
     symmetric: bool = False
 ) -> Dict[str, float]:
     """
@@ -110,12 +112,15 @@ def compute_add(
         gt_t: Ground truth translation vector (3,)
         model_points: 3D model points (N, 3)
         diameter: Object diameter (for threshold calculation)
-        threshold: Threshold as fraction of diameter (default: 0.1 = 10%)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
         symmetric: Whether to use ADD-S for symmetric objects
         
     Returns:
         Dictionary with 'add', 'add_threshold', 'is_correct' keys
     """
+    # Use Config default if not specified
+    if threshold is None:
+        threshold = Config.ADD_THRESHOLD
     # Transform model points with predicted pose
     pred_points = (pred_R @ model_points.T).T + pred_t  # (N, 3)
     
@@ -155,8 +160,8 @@ def compute_add_batch(
     obj_ids: List[int],
     models_dict: Dict[int, np.ndarray],
     models_info: Dict[int, Dict],
-    symmetric_objects: List[int] = [8, 9],
-    threshold: float = 0.1
+    symmetric_objects: List[int] = None,
+    threshold: float = None
 ) -> Dict[str, List[float]]:
     """
     🚀 OPTIMIZED: Compute ADD metric for a batch of predictions.
@@ -173,12 +178,17 @@ def compute_add_batch(
         obj_ids: Object IDs for each sample (B,)
         models_dict: Dictionary mapping obj_id to 3D model points
         models_info: Dictionary with object information (diameter, etc.)
-        symmetric_objects: List of symmetric object IDs
-        threshold: Threshold as fraction of diameter
+        symmetric_objects: List of symmetric object IDs (default: from Config.SYMMETRIC_OBJECTS)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
         
     Returns:
         Dictionary with lists of ADD values and correctness
     """
+    # Use Config defaults if not specified
+    if symmetric_objects is None:
+        symmetric_objects = Config.SYMMETRIC_OBJECTS
+    if threshold is None:
+        threshold = Config.ADD_THRESHOLD
     # Convert to numpy if torch tensors
     if isinstance(pred_R_batch, torch.Tensor):
         pred_R_batch = pred_R_batch.cpu().numpy()
@@ -261,23 +271,26 @@ def compute_add_batch(
 
 
 def load_all_models(
-    models_dir: Union[str, Path],
+    models_dir: Union[str, Path] = None,
     obj_ids: Optional[List[int]] = None
 ) -> Dict[int, np.ndarray]:
     """
     Load all 3D models from models directory.
     
     Args:
-        models_dir: Path to models directory
-        obj_ids: List of object IDs to load (default: all 1-15)
+        models_dir: Path to models directory (default: from Config.MODELS_PATH)
+        obj_ids: List of object IDs to load (default: all from Config.LINEMOD_OBJECTS)
         
     Returns:
         Dictionary mapping obj_id to 3D points
     """
+    # Use Config defaults if not specified
+    if models_dir is None:
+        models_dir = Config.MODELS_PATH
     models_dir = Path(models_dir)
     
     if obj_ids is None:
-        obj_ids = list(range(1, 16))  # 1-15
+        obj_ids = list(Config.LINEMOD_OBJECTS.keys())
     
     models_dict = {}
     

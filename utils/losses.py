@@ -11,6 +11,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from config import Config
+
 
 class PoseLoss(nn.Module):
     """
@@ -21,14 +23,16 @@ class PoseLoss(nn.Module):
         - Rotation loss: Geodesic distance on quaternions
     
     Args:
-        lambda_trans: Weight for translation loss (default: 1.0)
-        lambda_rot: Weight for rotation loss (default: 10.0)
+        lambda_trans: Weight for translation loss (default: from Config.LAMBDA_TRANS)
+        lambda_rot: Weight for rotation loss (default: from Config.LAMBDA_ROT)
     """
     
-    def __init__(self, lambda_trans: float = 1.0, lambda_rot: float = 10.0):
+    def __init__(self, lambda_trans: float = None, lambda_rot: float = None):
         super(PoseLoss, self).__init__()
-        self.lambda_trans = lambda_trans
-        self.lambda_rot = lambda_rot
+        
+        # Use Config defaults if not specified
+        self.lambda_trans = lambda_trans if lambda_trans is not None else Config.LAMBDA_TRANS
+        self.lambda_rot = lambda_rot if lambda_rot is not None else Config.LAMBDA_ROT
         
         print(f"✅ PoseLoss initialized")
         print(f"   λ_trans: {lambda_trans}")
@@ -154,8 +158,8 @@ if __name__ == '__main__':
     # Test loss functions
     print("Testing PoseLoss...\n")
     
-    # Create loss
-    criterion = PoseLoss(lambda_trans=1.0, lambda_rot=10.0)
+    # Create loss (uses Config defaults)
+    criterion = PoseLoss()
     
     # Generate random predictions and ground truth
     batch_size = 4

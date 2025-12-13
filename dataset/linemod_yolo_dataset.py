@@ -12,6 +12,7 @@ from pathlib import Path
 from torch.utils.data import Dataset
 import torch
 
+from config import Config
 from .base_linemod import BaseLineMODDataset
 from utils.bbox_utils import convert_bbox_to_yolo_format
 
@@ -26,7 +27,8 @@ class LinemodYOLODataset(BaseLineMODDataset):
     Args:
         dataset_root (str): Path to Linemod_preprocessed directory
         split (str): 'train' or 'test' (uses official split files)
-        folder_to_class_mapping (dict): Mapping from folder_id to class_id
+        folder_to_class_mapping (dict, optional): Mapping from folder_id to class_id
+                                                  (default: from Config.FOLDER_ID_TO_CLASS_ID)
     """
     
     def __init__(self, dataset_root, split='train', folder_to_class_mapping=None):
@@ -149,18 +151,24 @@ class LinemodYOLODataset(BaseLineMODDataset):
         }
 
 
-def create_yolo_dataloaders(dataset_root, batch_size=16, num_workers=2):
+def create_yolo_dataloaders(dataset_root, batch_size=None, num_workers=None):
     """
     Create train and validation DataLoaders for YOLO training.
     
     Args:
         dataset_root (str): Path to Linemod_preprocessed directory
-        batch_size (int): Batch size
-        num_workers (int): Number of worker processes
+        batch_size (int): Batch size (default: from Config.YOLO_BATCH_SIZE)
+        num_workers (int): Number of worker processes (default: from Config.NUM_WORKERS)
     
     Returns:
         tuple: (train_dataset, val_dataset)
     """
+    # Use Config defaults if not specified
+    if batch_size is None:
+        batch_size = Config.YOLO_BATCH_SIZE
+    if num_workers is None:
+        num_workers = Config.NUM_WORKERS
+    
     # Create datasets (test split used as validation)
     train_dataset = LinemodYOLODataset(dataset_root, split='train')
     val_dataset = LinemodYOLODataset(dataset_root, split='test')
@@ -174,12 +182,10 @@ def create_yolo_dataloaders(dataset_root, batch_size=16, num_workers=2):
 
 if __name__ == '__main__':
     # Test dataset
-    from config import Config
-    
     print("Testing LinemodYOLODataset...\n")
     
     # Create dataset
-    dataset = LinemodYOLODataset(Config.DATA_ROOT, split='train')
+    dataset = LinemodYOLODataset(Config.LINEMOD_ROOT, split='train')
     
     # Get first sample
     sample = dataset[0]

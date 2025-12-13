@@ -59,11 +59,6 @@ polito-aml-6D_pose_estimation/
 │   ├── test_yolo2_finetuning.ipynb      # YOLO fine-tuning & validation (mAP metrics)
 │   └── test_yolo3_pose_estimation.ipynb # Pose estimation testing & 3D visualization
 |
-├── scripts/                      # 🚀 EXECUTABLE SCRIPTS
-│   ├── train_yolo.py             # 🎯 YOLO fine-tuning script
-│   ├── train_pose.py             # 🎯 Pose estimation training (AdamW + mixed precision)
-│   ├── prepare_yolo_symlinks.py  # Create YOLO dataset with symlinks
-│   └── eval.py                   # 📊 Evaluation script
 |
 ├── utils/                        # 🛠️ UTILITIES MODULE
 │   ├── __init__.py               # Utility exports
@@ -72,6 +67,7 @@ polito-aml-6D_pose_estimation/
 │   ├── losses.py                 # Loss functions (translation + rotation)
 │   ├── metrics.py                # Evaluation metrics (ADD, ADD-S)
 │   ├── bbox_utils.py             # Bounding box utilities
+│   ├── prepare_yolo_symlinks.py  # Create YOLO dataset with symlinks
 │   └── organize_yolo_results.py  # Auto-organize YOLO outputs into subdirectories
 │
 ├── config.py                     # ⚙️ CONFIGURATION (hyperparameters, paths, M4 optimizations)
@@ -112,11 +108,6 @@ polito-aml-6D_pose_estimation/
 - `transforms.py`: Pose transformations (rotation matrix ↔ quaternion, bbox cropping, 3D point projection)
 - `losses.py`: Combined loss function (L1 smooth for translation + geodesic distance for rotation)
 - `metrics.py`: ADD and ADD-S metrics with 3D model loading
-
-**Scripts** (`scripts/`):
-
-- `train_pose.py`: Full training pipeline with gradient accumulation, mixed precision, validation with ADD metric, checkpoint management
-- Command-line interface for flexible hyperparameter configuration
 
 **Notebooks** (`notebooks/`): Jupyter notebooks for Colab training and educational purposes
 
@@ -161,31 +152,6 @@ On **Apple Silicon Mac** (M1/M2/M3), MPS (Metal Performance Shaders) will be aut
 | **Quick Test** | `--freeze_backbone --epochs 2` | 2-3 min | ~3M (head only) | Basic | Fast prototyping |
 | **Medium** | `--epochs 5` | 10-15 min | ~26M (full) | Good | Quick experiments |
 | **Full** | `--epochs 50` | 2-4 hours | ~26M (full) | Best | Final model |
-
-```bash
-# Quick test (freeze backbone - train only head, MUCH faster!)
-python scripts/train_pose.py \
-  --freeze_backbone \
-  --epochs 2 \
-  --batch_size 8
-
-# Full training (all parameters)
-python scripts/train_pose.py \
-  --epochs 50 \
-  --batch_size 8 \
-  --gradient_accum_steps 4 \
-  --use_wandb
-
-# Custom training
-python scripts/train_pose.py \
-  --data_dir ./data/Linemod_preprocessed \
-  --epochs 50 \
-  --batch_size 8 \
-  --gradient_accum_steps 4 \
-  --lr 1e-4 \
-  --use_wandb \
-  --run_name my_experiment
-```
 
 **Key Training Features:**
 
