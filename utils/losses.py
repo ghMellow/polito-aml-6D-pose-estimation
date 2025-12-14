@@ -125,6 +125,85 @@ class PoseLoss(nn.Module):
         }
 
 
+class PoseLossBaseline(nn.Module):
+    """
+    Baseline loss for 6D pose estimation (rotation only).
+    
+    Baseline model:
+        - Translation: Computed with Pinhole Camera Model (NO learning)
+        - Rotation: Learned by ResNet → Quaternion loss
+    
+    This loss is used ONLY for rotation training.
+    Translation is computed geometrically and not part of the loss.
+    
+    Args:
+        None (only rotation loss, no weighting needed)
+    """
+    
+    def __init__(self):
+        super(PoseLossBaseline, self).__init__()
+        
+        print(f"✅ PoseLossBaseline initialized (BASELINE MODEL)")
+        print(f"   Loss: Only rotation (quaternion geodesic distance)")
+        print(f"   Translation: Computed with Pinhole (not part of loss)")
+    
+    def rotation_loss(self, pred_q: torch.Tensor, gt_q: torch.Tensor) -> torch.Tensor:
+        """
+        Compute rotation loss using geodesic distance on quaternions.
+        
+        The geodesic distance is:
+            d = arccos(|q_pred · q_gt|)
+        
+        where the dot product gives the cosine of the angle between quaternions.
+        
+        Args:
+            pred_q: Predicted quaternion (B, 4), assumed normalized
+            gt_q: Ground truth quaternion (B, 4), assumed normalized
+            
+        Returns:
+            Rotation loss (scalar)
+        """
+        # Compute dot product (cosine of angle)
+        # Take absolute value to handle q and -q representing same rotation
+        dot_product = torch.abs(torch.sum(pred_q * gt_q, dim=1))
+        
+        # Clamp to avoid numerical issues with arccos
+        dot_product = torch.clamp(dot_product, -1.0, 1.0)
+        
+        # Geodesic distance
+        angle = torch.acos(dot_product)
+        
+        # Return mean angle
+        return torch.mean(angle)
+    
+    def forward(self, pred_q: torch.Tensor, gt_q: torch.Tensor) -> dict:
+        """
+        Compute rotation loss (baseline).
+        
+        Args:
+            pred_q: Predicted quaternion (B, 4)
+            gt_q: Ground truth quaternion (B, 4)
+            
+        Returns:
+            Dictionary with 'total' and 'rot' losses
+            
+        Note:
+            'total' == 'rot' since there's no translation loss in baseline.
+            Translation is computed with Pinhole Camera Model separately.
+        """
+        # Ensure tensors are contiguous
+        pred_q = pred_q.contiguous()
+        gt_q = gt_q.contiguous()
+        
+        # Compute rotation loss
+        loss_rot = self.rotation_loss(pred_q, gt_q)
+        
+        return {
+            'total': loss_rot,
+            'rot': loss_rot
+        }
+
+
 class QuaternionL2Loss(nn.Module):
     """
     Alternative rotation loss using L2 distance on quaternions.
@@ -156,7 +235,12 @@ class QuaternionL2Loss(nn.Module):
 
 if __name__ == '__main__':
     # Test loss functions
-    print("Testing PoseLoss...\n")
+    print("Testing Loss Functions...\n")
+    
+    # ==================== Test PoseLoss (End-to-End) ====================
+    print("=" * 60)
+    print("1️⃣  Testing PoseLoss (End-to-End Model)")
+    print("=" * 60)
     
     # Create loss (uses Config defaults)
     criterion = PoseLoss()
@@ -176,7 +260,7 @@ if __name__ == '__main__':
     # Compute loss
     losses = criterion(pred_q, pred_t, gt_q, gt_t)
     
-    print(f"\n📊 Loss Values:")
+    print(f"\n📊 Loss Values (Random Predictions):")
     print(f"   Total: {losses['total'].item():.4f}")
     print(f"   Translation: {losses['trans'].item():.4f}")
     print(f"   Rotation: {losses['rot'].item():.4f} (radians)")
@@ -189,4 +273,42 @@ if __name__ == '__main__':
     print(f"   Translation: {losses_zero['trans'].item():.6f}")
     print(f"   Rotation: {losses_zero['rot'].item():.6f}")
     
-    print(f"\n✅ Loss tests completed")
+    # ==================== Test PoseLossBaseline (Baseline) ====================
+    print(f"\n" + "=" * 60)
+    print("2️⃣  Testing PoseLossBaseline (Baseline Model)")
+    print("=" * 60)
+    
+    # Create baseline loss
+    criterion_baseline = PoseLossBaseline()
+    
+    # Compute loss (only rotation)
+    losses_baseline = criterion_baseline(pred_q, gt_q)
+    
+    print(f"\n📊 Loss Values (Random Predictions):")
+    print(f"   Total: {losses_baseline['total'].item():.4f}")
+    print(f"   Rotation: {losses_baseline['rot'].item():.4f} (radians)")
+    print(f"   Rotation (degrees): {torch.rad2deg(losses_baseline['rot']).item():.2f}°")
+    print(f"   Note: No translation loss (computed with Pinhole)")
+    
+    # Test with identical predictions
+    print(f"\n🧪 Testing with identical predictions:")
+    losses_baseline_zero = criterion_baseline(gt_q, gt_q)
+    print(f"   Total: {losses_baseline_zero['total'].item():.6f}")
+    print(f"   Rotation: {losses_baseline_zero['rot'].item():.6f}")
+    
+    # ==================== Comparison ====================
+    print(f"\n" + "=" * 60)
+    print("3️⃣  Comparison: PoseLoss vs PoseLossBaseline")
+    print("=" * 60)
+    print(f"\nPoseLoss (End-to-End):")
+    print(f"   - Learns: Translation + Rotation")
+    print(f"   - Loss components: λ_trans * L_trans + λ_rot * L_rot")
+    print(f"   - Training: More complex (2 outputs)")
+    print(f"   - Input required: RGB crop only")
+    print(f"\nPoseLossBaseline:")
+    print(f"   - Learns: Rotation only")
+    print(f"   - Loss components: L_rot (quaternion geodesic)")
+    print(f"   - Training: Simpler (1 output)")
+    print(f"   - Input required: RGB crop + Pinhole for translation")
+    print(f"\n✅ Both losses tested successfully!")
+    print("=" * 60)

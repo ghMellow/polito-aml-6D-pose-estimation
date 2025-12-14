@@ -47,7 +47,7 @@ polito-aml-6D_pose_estimation/
 ├── models/                       # 🧠 MODELS MODULE
 │   ├── __init__.py               # Model exports
 │   ├── yolo_detector.py          # YOLO11-based object detection (freeze/train/validate)
-│   └── pose_estimator.py         # 6D pose estimation (ResNet-50 + regression head)
+│   └── pose_estimator_endtoend.py         # 6D pose estimation (ResNet-50 + regression head)
 │
 ├── notebooks/                    # 📓 JUPYTER NOTEBOOKS
 │   ├── colab_training.ipynb      # Google Colab training workflow
@@ -100,7 +100,7 @@ polito-aml-6D_pose_estimation/
 **Models Module** (`models/`):
 
 - `yolo_detector.py`: yolo-based object detection wrapper
-- `pose_estimator.py`: 6D pose estimation using ResNet-50 backbone + regression head outputting quaternion (4D) + translation (3D)
+- `pose_estimator_endtoend.py`: 6D pose estimation using ResNet-50 backbone + regression head outputting quaternion (4D) + translation (3D)
 
 **Utils Module** (`utils/`):
 

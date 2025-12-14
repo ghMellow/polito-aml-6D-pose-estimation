@@ -7,7 +7,7 @@ Questo modulo contiene le implementazioni dei modelli neurali per object detecti
 ### `__init__.py`
 File di inizializzazione del modulo Python che rende la directory un package importabile.
 
-### `pose_estimator.py`
+### `pose_estimator_endtoend.py`
 Modello di deep learning per la stima della posa 6D degli oggetti.
 
 **Architettura:**
@@ -47,7 +47,7 @@ Wrapper per yolo (Ultralytics) adattato per LineMOD.
 
 ## Differenze tra i Modelli
 
-| Caratteristica | `pose_estimator.py` | `yolo_detector.py` |
+| Caratteristica | `pose_estimator_endtoend.py` | `yolo_detector.py` |
 |---------------|---------------------|-------------------|
 | **Task** | 6D Pose Estimation | Object Detection |
 | **Input** | Immagine croppata (224×224) | Immagine completa (416-640) |
@@ -81,7 +81,7 @@ detector = YOLODetector(model_name='yolo11n', pretrained=True, num_classes=13)
 boxes = detector.predict(images)
 
 # Pose Estimation
-from models.pose_estimator import PoseEstimator
+from models.pose_estimator_endtoend import PoseEstimator
 pose_model = PoseEstimator(pretrained=True, dropout=0.3)
 quaternion, translation = pose_model(cropped_images)
 ```

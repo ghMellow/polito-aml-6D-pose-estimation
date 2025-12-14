@@ -50,7 +50,7 @@ Notebook per testare il modello di pose estimation.
 
 **Uso tipico:**
 ```python
-from models.pose_estimator import PoseEstimator
+from models.pose_estimator_endtoend import PoseEstimator
 model = PoseEstimator(pretrained=True)
 quaternion, translation = model(cropped_images)
 R = quaternion_to_rotation_matrix(quaternion)
