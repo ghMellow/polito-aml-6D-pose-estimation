@@ -257,15 +257,37 @@ class YOLODetector:
         iou = iou if iou is not None else Config.YOLO_IOU_THRESHOLD
         imgsz = imgsz if imgsz is not None else Config.YOLO_IMG_SIZE
         
-        results = self.model.predict(
-            source=source,
-            conf=conf,
-            iou=iou,
-            imgsz=imgsz,
-            save=save,
-            device=self.device,
-            **kwargs
-        )
+        # 🚀 WORKAROUND: Force CPU for NMS if CUDA to avoid torchvision incompatibility
+        # Some torchvision builds don't have CUDA NMS kernel compiled
+        nms_device = 'cpu' if self.device == 'cuda' else self.device
+        
+        try:
+            results = self.model.predict(
+                source=source,
+                conf=conf,
+                iou=iou,
+                imgsz=imgsz,
+                save=save,
+                device=self.device,
+                **kwargs
+            )
+        except NotImplementedError as e:
+            if 'torchvision::nms' in str(e):
+                print(f"⚠️  torchvision NMS not available for {self.device}, falling back to CPU NMS")
+                # Fallback: move model to CPU, predict, then move back
+                self.model.to('cpu')
+                results = self.model.predict(
+                    source=source,
+                    conf=conf,
+                    iou=iou,
+                    imgsz=imgsz,
+                    save=save,
+                    device='cpu',
+                    **kwargs
+                )
+                self.model.to(self.device)
+            else:
+                raise
         
         return results
     
