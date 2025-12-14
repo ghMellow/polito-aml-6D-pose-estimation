@@ -210,7 +210,13 @@ class Config:
     POSE_CROP_MARGIN = 0.15  # da 0.1 a 0.15 (più variabilità)
     POSE_COLOR_JITTER = True
     
-    # Loss weights
+    """
+    Loss weights for pose estimation
+    - ALPHA_TRANS : weight for translation loss (ALPHA in slides)
+    - ALPHA_ROT   : weight for rotation loss (BETA in slides)
+    https://docs.google.com/presentation/d/1xjmM6H0pYA9ytBX5lY7b-0Y52PoIMx_w1T90tcxe6wI
+    
+    """
     LAMBDA_TRANS = 1.0  # Translation loss weight
     LAMBDA_ROT = 50.0   # Rotation loss weight (10 -> 50)
     

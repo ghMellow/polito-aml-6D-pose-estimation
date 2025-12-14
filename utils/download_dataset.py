@@ -79,6 +79,9 @@ def download_linemod_dataset(output_dir=None):
         raise
 
 
+"""
+for command line execution
+"""
 if __name__ == '__main__':
     import argparse
     
