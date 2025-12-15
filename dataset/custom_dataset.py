@@ -51,10 +51,15 @@ class CustomDataset(Dataset):
         self.train_ratio = train_ratio if train_ratio is not None else Config.TRAIN_TEST_RATIO
         self.seed = seed if seed is not None else Config.RANDOM_SEED
         
-        # Caching setting from Config
+        # Caching setting from Config - use strategy ('full', 'partial', 'none')
         if cache_images is None:
-            cache_images = Config.CACHE_IMAGES
-        self.cache_images = cache_images
+            cache_strategy = Config.CACHE_STRATEGY
+        else:
+            # If user explicitly passed cache_images boolean, convert to strategy
+            cache_strategy = 'full' if cache_images else 'none'
+        
+        self.cache_strategy = cache_strategy
+        self.cache_images = (cache_strategy != 'none')  # For backward compatibility
         
         # Define image transformations
         if transform is None:

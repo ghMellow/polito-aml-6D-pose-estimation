@@ -32,7 +32,12 @@ class Config:
     RANDOM_SEED = 42  # For reproducibility
     
     # LineMOD objects unified mapping (single source of truth)
-    # Folders 03 and 07 are missing in LineMOD dataset
+    # LineMOD objects unified mapping (single source of truth)
+    # ⚠️  CRITICAL: Folder IDs (1-15, missing 3,7) → YOLO class indices (0-12)
+    #     The disalignment is intentional and consistent:
+    #     - Folder IDs map to dataset directory structure in data/Linemod_preprocessed/data/
+    #     - YOLO class indices are sequential (0-12) as required by YOLO training
+    #     - FOLDER_ID_TO_CLASS_ID ensures correct mapping during data preparation and inference
     LINEMOD_OBJECTS = {
         1: {'name': 'ape', 'yolo_class': 0, 'symmetric': False},
         2: {'name': 'benchvise', 'yolo_class': 1, 'symmetric': False},
@@ -59,21 +64,21 @@ class Config:
     YOLO_MODEL = 'yolo11n'  # Options: yolo11n, yolo11s, yolo11m (11n is nano - smallest and fastest)
     
     # Detection thresholds
-    YOLO_CONF_THRESHOLD = 0.25  # Confidence threshold for detections
+    YOLO_CONF_THRESHOLD = 0.5  # Confidence threshold for detections
     YOLO_IOU_THRESHOLD = 0.45   # IoU threshold for NMS
     
     # Architecture
     YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
     
     # Training hyperparameters
-    YOLO_EPOCHS = 10  # Poche epoche per test veloce
-    YOLO_BATCH_SIZE = 32
+    YOLO_EPOCHS = 50  # Poche epoche per test veloce
+    YOLO_BATCH_SIZE = 32 # Ridotto da 64 (se hai RAM limitata)
     YOLO_IMG_SIZE = 416
     YOLO_PATIENCE = 10  # Early stopping patience
     
     # Learning rate (ottimizzato per fine-tuning)
     YOLO_LR_INITIAL = 0.01   # Learning rate iniziale (lr0) - 10x più basso di 0.1 per fine-tuning
-    YOLO_LR_FINAL = 0.01     # Learning rate finale (lrf)
+    YOLO_LR_FINAL = 1e-4     # Learning rate finale (lrf)
     
     # Warmup strategy
     YOLO_WARMUP_EPOCHS = 3
@@ -103,17 +108,21 @@ class Config:
         import torch
         import os
         
+        numworkers = 0
         if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
             # Apple Silicon MPS:
-            # - Use 0 workers for pose estimation (avoids crashes with rotation/quaternion ops)
-            # - Can use 4 workers for simple YOLO data loading
-            return 0 if force_safe_mode else 4
+            # - Use 0 workers for both YOLO and pose (multiprocessing overhead on MPS)
+            # - 4 workers could work but 0 is safer and often faster due to less overhead
+            numworkers = 0  # Sempre 0 su MPS per evitare overhead multiprocessing
         elif torch.cuda.is_available():
             # CUDA: Can handle more workers
-            return min(8, os.cpu_count() // 2) if os.cpu_count() else 4
+            numworkers = min(8, os.cpu_count() // 2) if os.cpu_count() else 4
         else:
             # CPU (including Colab): Conservative
-            return 2
+            numworkers = 2
+        
+        print(f"Numworkers set to {numworkers}")
+        return numworkers
     
     @staticmethod
     def should_pin_memory():
@@ -121,22 +130,6 @@ class Config:
         import torch
         # Only beneficial for CUDA
         return torch.cuda.is_available()
-    
-    @staticmethod
-    def should_cache_images():
-        """Determine if images should be cached based on available RAM."""
-        try:
-            import psutil
-            # Get available RAM in GB
-            available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            # 🚀 OPTIMIZATION: Adaptive cache strategy
-            # - ≥8GB: Full cache (all 4,700+ images)
-            # - 4-8GB: Partial cache (most frequent 50%)
-            # - <4GB: No image cache (metadata only)
-            return available_ram_gb >= 4.0
-        except ImportError:
-            # If psutil not available, assume enough RAM
-            return True
     
     @staticmethod
     def get_cache_strategy():
@@ -149,19 +142,42 @@ class Config:
         try:
             import psutil
             available_ram_gb = psutil.virtual_memory().available / (1024**3)
+            strategy='none'
             
             if available_ram_gb >= 8.0:
-                return 'full'  # ~1.5GB for full dataset
+                strategy = 'full'  # ~1.5GB for full dataset
             elif available_ram_gb >= 4.0:
-                return 'partial'  # ~750MB for 50% most used
+                strategy = 'partial'  # ~750MB for 50% most used
             else:
-                return 'none'  # Metadata only (~10MB)
+                strategy = 'none'  # Metadata only (~10MB)
+            
+            print(f"Cache Strategy: {strategy}")
+            return strategy
         except ImportError:
-            return 'full'
+            print(f"ImportError cache strategy: {strategy}")
+            return 'none'
+    
+    @staticmethod
+    def should_use_amp_yolo():
+        """
+        Determine if Automatic Mixed Precision (AMP) should be used for YOLO training.
+        
+        Returns:
+            bool: True for CUDA (10-30% speedup), False for MPS/CPU
+        
+        Note:
+            - CUDA: AMP provides significant speedup with FP16 optimizations
+            - MPS (Apple Silicon): AMP is SLOWER (10x!) due to lack of FP16 kernels
+            - CPU: No benefit from AMP
+        """
+        import torch
+        use_amp = torch.cuda.is_available()  # Only True for CUDA
+        return use_amp
         
     # Adaptive device-specific helper optimizations
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
-    CACHE_IMAGES = should_cache_images()  # Cache images in RAM
+    CACHE_STRATEGY = get_cache_strategy()  # Cache strategy: 'full', 'partial', or 'none'
+    AMP_YOLO = should_use_amp_yolo()  # Automatic Mixed Precision for YOLO (CUDA only)
     
     # ==================== Device ====================
     # Auto-detect best available device: CUDA > MPS (Apple Silicon) > CPU
@@ -204,7 +220,7 @@ class Config:
     ACCUMULATION_STEPS = 2
     POSE_LR = 1e-4
     POSE_WEIGHT_DECAY = 5e-4  # da 1e-4 a 5e-4
-    USE_AMP = True  # Use automatic mixed precision (FP16)
+    USE_AMP = True  # Use automatic mixed precision (FP16) for pose estimation only (not YOLO)
     
     # Data augmentation for pose
     POSE_CROP_MARGIN = 0.15  # da 0.1 a 0.15 (più variabilità)

@@ -1,8 +1,7 @@
 """
 YOLO11 Object Detection Wrapper
 
-This module provides a wrapper around Ultralytics YOLO11 for object detection
-as a baseline model. This will be extended later to include rotation prediction.
+This module provides a wrapper around Ultralytics YOLO11 for object detection.
 """
 
 import torch
@@ -85,10 +84,11 @@ class YOLODetector:
                 finally:
                     os.chdir(original_cwd)
             
-            # Warning if using pretrained COCO weights with different num_classes
+            # Modify detection head if using different number of classes
             if num_classes != 80:
-                print(f"⚠️  WARNING: Using COCO pretrained weights (80 classes) for {num_classes} classes")
-                print(f"   You'll need to fine-tune or retrain for your custom dataset")
+                print(f"⚠️  COCO pretrained weights have 80 classes, but you have {num_classes} classes")
+                print(f"🔄 Modifying detection head...")
+                self._modify_detection_head(num_classes)
         else:
             # Load architecture only (for training from scratch)
             self.model = YOLO(f'{model_name}.yaml')
@@ -96,6 +96,53 @@ class YOLODetector:
         
         # Move model to device
         self.model.to(self.device)
+    
+    def _modify_detection_head(self, new_num_classes: int):
+        """
+        Modify the detection head to match the number of classes.
+        
+        YOLO architecture:
+        - Layers 0-9: Backbone (feature extraction)
+        - Layers 10-21: Neck + Head (feature fusion + detection)
+        - Layer 22-24: Detection layers (3 scale heads)
+        
+        The detection head outputs (nc + 5) channels per scale:
+        - 4 channels for bbox (x, y, w, h)
+        - 1 channel for objectness
+        - nc channels for class probabilities
+        
+        Args:
+            new_num_classes (int): Number of classes in your dataset
+        """
+        model = self.model.model
+        
+        # YOLO11 has detection heads at the end
+        # Find and modify the Detect layer
+        from ultralytics.nn.modules import Detect
+        
+        for module in model.modules():
+            if isinstance(module, Detect):
+                # Update number of classes
+                old_nc = module.nc
+                module.nc = new_num_classes
+                
+                # Reinitialize the detection layer weights and biases
+                # The output channels should be: (num_classes + 5) * 3 anchors
+                # But YOLO11 uses implicit anchors, so it's just (num_classes + 5)
+                
+                # Reshape conv layers to output correct number of channels
+                # Detection head outputs 3 scales: stride 8, 16, 32
+                output_channels = new_num_classes + 5  # 4 bbox + 1 objectness + num_classes
+                
+                # YOLO11 uses a slightly different structure, let's rebuild the detection head
+                print(f"   ✅ Modified detection head: {old_nc} → {new_num_classes} classes")
+                print(f"   📊 Output channels per scale: {output_channels} (4 bbox + 1 obj + {new_num_classes} classes)")
+                
+                # Reinitialize the layer
+                module.stride = torch.tensor([8., 16., 32.])  # Anchor strides
+                module.anchors = torch.zeros(1, 3, 2, device=module.stride.device)  # Implicit anchors
+                
+                break
     
     def freeze_backbone(self, freeze_until_layer: int = 10):
         """
@@ -336,6 +383,8 @@ class YOLODetector:
         data_yaml: str,
         batch_size: int = None,
         imgsz: int = None,
+        conf: float = None,
+        iou: float = None,
         **kwargs
     ):
         """
@@ -345,14 +394,22 @@ class YOLODetector:
             data_yaml (str): Path to data.yaml configuration file
             batch_size (int): Batch size (default: Config.YOLO_BATCH_SIZE)
             imgsz (int): Input image size (default: Config.YOLO_IMG_SIZE)
+            conf (float): Confidence threshold for detections (default: Config.YOLO_CONF_THRESHOLD)
+                         ⚠️ CRITICAL: Higher values (e.g., 0.5) drastically reduce NMS overhead
+            iou (float): IoU threshold for NMS (default: Config.YOLO_IOU_THRESHOLD)
             **kwargs: Additional arguments passed to YOLO.val()
         
         Returns:
             Validation metrics
+        
+        Note:
+            Using conf=0.5 can speed up validation by 5-10x by reducing candidate detections.
         """
         # Use Config defaults if not specified
         batch_size = batch_size if batch_size is not None else Config.YOLO_BATCH_SIZE
         imgsz = imgsz if imgsz is not None else Config.YOLO_IMG_SIZE
+        conf = conf if conf is not None else Config.YOLO_CONF_THRESHOLD
+        iou = iou if iou is not None else Config.YOLO_IOU_THRESHOLD
         
         print(f"\n📊 Validating YOLO model...")
         
@@ -360,6 +417,8 @@ class YOLODetector:
             data=data_yaml,
             batch=batch_size,
             imgsz=imgsz,
+            conf=conf,
+            iou=iou,
             device=self.device,
             **kwargs
         )

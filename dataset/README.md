@@ -54,3 +54,29 @@ train_dataset = CustomDataset(dataset_root='data/Linemod_preprocessed', split='t
 from dataset.linemod_yolo_dataset import LinemodYOLODataset
 yolo_dataset = LinemodYOLODataset(dataset_root='data/Linemod_preprocessed', split='train')
 ```
+
+## Campi restituiti da `__getitem__`
+
+- **CustomDataset:** struttura (tuple o dict) contenente tipicamente:
+	- `rgb`: PIL Image o `Tensor` (H,W,3) — immagine RGB
+	- `depth`: `numpy` array o `Tensor` (H,W) — mappa di profondità
+	- `mask`: `numpy` array o `Tensor` (H,W) — maschera binaria dell'oggetto
+	- `bbox`: list o array `[x_min, y_min, x_max, y_max]` (pixel) — bounding box in pixel
+	- `pose`: dict con `rotation` (quaternion o matrice 3x3) e `translation` (3,) — posa 6D
+	- `cam_K`: lista o array (3x3) — matrice delle intrinseche
+	- `meta`: dict — campi addizionali (`folder_id`, `sample_id`, `obj_idx`, ecc.)
+
+- **PoseDataset:** versione focalizzata su singolo oggetto / crop (usata per la rete di pose). Tipicamente restituisce:
+	- `crop`: PIL Image o `Tensor` — immagine ritagliata in ingresso alla rete
+	- `mask_crop`: `Tensor` — maschera corrispondente al crop
+	- `bbox_crop`: bbox nel sistema di coordinate del crop
+	- `rotation`, `translation`, `cam_K`, `meta`
+
+- **LinemodYOLODataset:** ottimizzato per training di YOLO, ritorna:
+	- `image`: PIL Image — immagine completa
+	- `bboxes`: lista di `[class_id, x_center, y_center, width, height]` (valori normalizzati 0-1)
+	- `class_ids`: lista di interi (ridondante se i `class_id` sono inclusi in `bboxes`)
+	- `meta`: dict con `folder_id`, `sample_id`
+
+Le tipologie sopra sono indicative: per il formato esatto controllare l'implementazione di `__getitem__` nelle rispettive classi.
+
