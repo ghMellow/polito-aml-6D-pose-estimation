@@ -5,7 +5,13 @@ Mantiene pulita la directory principale spostando grafici e samples.
 
 from pathlib import Path
 import shutil
+import sys
 
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from config import Config
 
 def organize_yolo_output(project_dir: Path) -> dict:
     """
@@ -97,6 +103,9 @@ def organize_yolo_output(project_dir: Path) -> dict:
                     print(f"⚠️  Errore spostando {file.name}: {e}")
                     stats['skipped'] += 1
     
+    # Clean old folder
+    clean_old_directory()
+
     return stats
 
 
@@ -112,6 +121,34 @@ def print_organization_summary(project_dir: Path, stats: dict):
     
     if stats['skipped'] > 0:
         print(f"   ⚠️  File saltati: {stats['skipped']}")
+
+def clean_old_directory():
+    # ----------------------
+    # Pulizia cartelle temporanee create da YOLO (runs/.../val)
+    # ----------------------
+    import shutil
+    from pathlib import Path
+    
+    cleanup_paths = [
+        Path.cwd() / 'runs' / 'detect' / 'val',
+        Path.cwd() / 'runs' / 'val',
+        Config.PROJECT_ROOT / 'runs' / 'detect' / 'val',
+        Config.PROJECT_ROOT / 'runs' / 'val',
+    ]
+    
+    removed = []
+    for p in cleanup_paths:
+        try:
+            if p.exists():
+                shutil.rmtree(p)
+                removed.append(str(p))
+        except Exception as e:
+            print(f"⚠️ Errore rimuovendo {p}: {e}")
+    
+    if removed:
+        print(f"🧹 Rimosse cartelle temporanee: {', '.join(removed)}")
+    else:
+        print("🧹 Nessuna cartella temporanea trovata da rimuovere")
 
 
 if __name__ == '__main__':
