@@ -104,7 +104,7 @@ def organize_yolo_output(project_dir: Path) -> dict:
                     stats['skipped'] += 1
     
     # Clean old folder
-    clean_old_directory()
+    #clean_old_directory()
 
     return stats
 
