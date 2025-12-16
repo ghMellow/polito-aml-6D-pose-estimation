@@ -101,46 +101,55 @@ class YOLODetector:
         """
         Modify the detection head to match the number of classes.
         
-        YOLO architecture:
-        - Layers 0-9: Backbone (feature extraction)
-        - Layers 10-21: Neck + Head (feature fusion + detection)
-        - Layer 22-24: Detection layers (3 scale heads)
-        
-        The detection head outputs (nc + 5) channels per scale:
-        - 4 channels for bbox (x, y, w, h)
-        - 1 channel for objectness
-        - nc channels for class probabilities
-        
         Args:
             new_num_classes (int): Number of classes in your dataset
         """
-        model = self.model.model
-        
-        # YOLO11 has detection heads at the end
-        # Find and modify the Detect layer
+        import torch.nn as nn
         from ultralytics.nn.modules import Detect
         
-        for module in model.modules():
+        model = self.model.model
+        
+        # Find the Detect module
+        for i, module in enumerate(model.model):
             if isinstance(module, Detect):
-                # Update number of classes
                 old_nc = module.nc
                 module.nc = new_num_classes
                 
-                # Reinitialize the detection layer weights and biases
-                # The output channels should be: (num_classes + 5) * 3 anchors
-                # But YOLO11 uses implicit anchors, so it's just (num_classes + 5)
+                print(f"\n🔍 Inspecting cv3 structure:")
+                for j, conv_block in enumerate(module.cv3):
+                    print(f"   cv3[{j}]: {type(conv_block).__name__}")
+                    print(f"   Structure: {conv_block}")
                 
-                # Reshape conv layers to output correct number of channels
-                # Detection head outputs 3 scales: stride 8, 16, 32
-                output_channels = new_num_classes + 5  # 4 bbox + 1 objectness + num_classes
+                # YOLO11 cv3 structure is typically a Conv module wrapper
+                # We need to replace the final conv layer
+                for j in range(len(module.cv3)):
+                    # Get the old module to extract input channels
+                    old_module = module.cv3[j]
+                    
+                    # YOLO uses a custom Conv wrapper, access the actual conv layer
+                    if hasattr(old_module, 'conv'):
+                        in_channels = old_module.conv.in_channels
+                    elif hasattr(old_module, 'weight'):
+                        # It's already a Conv2d
+                        in_channels = old_module.in_channels
+                    else:
+                        # Navigate through children
+                        for child in old_module.modules():
+                            if isinstance(child, nn.Conv2d):
+                                in_channels = child.in_channels
+                                break
+                    
+                    print(f"   cv3[{j}]: {in_channels} → {new_num_classes} channels")
+                    
+                    # Replace with new Conv2d
+                    module.cv3[j] = nn.Conv2d(in_channels, new_num_classes, kernel_size=1, bias=True)
+                    
+                    # Initialize weights
+                    nn.init.normal_(module.cv3[j].weight, mean=0.0, std=0.01)
+                    nn.init.constant_(module.cv3[j].bias, 0.0)
                 
-                # YOLO11 uses a slightly different structure, let's rebuild the detection head
-                print(f"   ✅ Modified detection head: {old_nc} → {new_num_classes} classes")
-                print(f"   📊 Output channels per scale: {output_channels} (4 bbox + 1 obj + {new_num_classes} classes)")
-                
-                # Reinitialize the layer
-                module.stride = torch.tensor([8., 16., 32.])  # Anchor strides
-                module.anchors = torch.zeros(1, 3, 2, device=module.stride.device)  # Implicit anchors
+                print(f"\n   ✅ Modified detection head: {old_nc} → {new_num_classes} classes")
+                print(f"   🔧 Reinitialized {len(module.cv3)} cv3 classification layers")
                 
                 break
     
