@@ -7,6 +7,41 @@ Eliminates code duplication across dataset modules.
 
 from typing import Union, List, Tuple
 import numpy as np
+import cv2
+
+def crop_and_pad(img, bbox, output_size, margin=0.0):
+    """
+    Crop centrato sul bbox con padding se necessario. Output sempre quadrato.
+    img: numpy array HWC, bbox: [x, y, w, h] in pixel coords
+    output_size: (W, H) tuple
+    margin: float, percentuale di margine aggiuntivo
+    """
+    x, y, w, h = bbox
+    # Applica margin
+    x_c, y_c = x + w / 2, y + h / 2
+    w_m = w * (1 + margin)
+    h_m = h * (1 + margin)
+    x = x_c - w_m / 2
+    y = y_c - h_m / 2
+    w = w_m
+    h = h_m
+    H, W = img.shape[:2]
+    x1 = int(np.floor(x))
+    y1 = int(np.floor(y))
+    x2 = int(np.ceil(x + w))
+    y2 = int(np.ceil(y + h))
+    pad_left = max(0, -x1)
+    pad_top = max(0, -y1)
+    pad_right = max(0, x2 - W)
+    pad_bottom = max(0, y2 - H)
+    img_padded = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=0)
+    x1 += pad_left
+    y1 += pad_top
+    x2 += pad_left
+    y2 += pad_top
+    crop = img_padded[y1:y2, x1:x2]
+    crop_resized = cv2.resize(crop, output_size, interpolation=cv2.INTER_LINEAR)
+    return crop_resized
 
 
 def convert_bbox_to_yolo_format(

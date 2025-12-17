@@ -608,24 +608,24 @@ class PoseDataset(Dataset):
         # Convert rotation matrix to quaternion
         quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
         
-        # Crop image using bbox with margin
-        from utils.transforms import crop_image_from_bbox
+        # Crop image using bbox with margin, robust to out-of-bounds
+        from utils.bbox_utils import crop_and_pad
         try:
-            rgb_crop = crop_image_from_bbox(
+            rgb_crop = crop_and_pad(
                 rgb_array,
                 bbox,
-                margin=self.crop_margin,
-                output_size=self.output_size
+                self.output_size,
+                margin=self.crop_margin
             )
-        except ValueError as e:
-            # Skip invalid bboxes and try next sample
+        except Exception as e:
             print(f"Warning: Skipping invalid bbox at idx={idx}, folder={folder_id:02d}, "
                   f"sample={sample_id:04d}, obj_idx={obj_idx}, bbox={bbox}. Error: {e}")
-            # Return next valid sample
             return self.__getitem__((idx + 1) % len(self))
         
         # Apply transforms
         if self.transform:
+            if isinstance(rgb_crop, np.ndarray):
+                rgb_crop = Image.fromarray(rgb_crop)
             rgb_crop = self.transform(rgb_crop)
         
         # 🚀 OPTIMIZATION: Load camera intrinsics from cache (no file I/O!)

@@ -215,7 +215,7 @@ class Config:
     POSE_DROPOUT = 0.5
     
     # Training parameters
-    POSE_EPOCHS = 100
+    POSE_EPOCHS = 50
     POSE_BATCH_SIZE = 64 
     ACCUMULATION_STEPS = 2
     POSE_LR = 1e-4
