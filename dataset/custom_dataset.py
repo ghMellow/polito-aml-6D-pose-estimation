@@ -246,7 +246,7 @@ class CustomDataset(Dataset):
                 'rotation': torch.from_numpy(cam_R_m2c).float(),
                 'translation': torch.from_numpy(cam_t_m2c).float(),
                 'bbox': torch.from_numpy(obj_bb).float(),
-                'obj_id': obj_id
+                'obj_id': torch.tensor(obj_id, dtype=torch.long)
             })
         
         return all_objects

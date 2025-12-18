@@ -1,9 +1,21 @@
 """
-Evaluation Metrics for 6D Pose Estimation
+Metriche per la 6D Pose Estimation (solo per modelli di pose, non per YOLO)
 
-This module implements evaluation metrics for 6D pose estimation:
-- ADD (Average Distance of Model Points)
-- ADD-S (Symmetric version for symmetric objects)
+Questo modulo implementa le metriche ADD/ADD-S per valutare modelli di pose (es. ResNet):
+
+1. ResNet che predice solo la rotazione:
+    - Si valuta la rotazione predetta, la traslazione è fissata a zero (dummy).
+    - Si usa la metrica ADD considerando solo la rotazione.
+
+2. ResNet che predice rotazione e traslazione:
+    - Si valuta sia la rotazione che la traslazione predetta.
+    - Si usa la metrica ADD completa.
+
+3. Versioni avanzate/future:
+    - Supporto per modelli che usano anche depth, mask, o strategie avanzate.
+    - Funzioni batch ottimizzate e GPU-ready.
+
+Nota: Le metriche ADD/ADD-S non sono usate per la valutazione di modelli YOLO, che si occupano solo di object detection 2D e forniscono i crop per la rete di pose.
 """
 
 import numpy as np
@@ -88,6 +100,151 @@ def load_models_info(info_path: Union[str, Path]) -> Dict:
     return models_info
 
 
+# ==================== 1. ResNet: Solo Rotazione ====================
+
+def compute_add_rotation_only(
+    pred_R: np.ndarray,
+    gt_R: np.ndarray,
+    model_points: np.ndarray,
+    diameter: float,
+    threshold: float = None,
+    symmetric: bool = False
+) -> Dict[str, float]:
+    """
+    [CASO 1] Compute ADD per modelli che predicono SOLO la rotazione (es. ResNet baseline).
+    
+    La traslazione è automaticamente impostata a zero (dummy) per entrambe le pose.
+    Questo è usato per modelli che stimano solo l'orientamento dell'oggetto.
+    
+    Args:
+        pred_R: Predicted rotation matrix (3, 3)
+        gt_R: Ground truth rotation matrix (3, 3)
+        model_points: 3D model points (N, 3)
+        diameter: Object diameter (for threshold calculation)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
+        symmetric: Whether to use ADD-S for symmetric objects
+        
+    Returns:
+        Dictionary with 'add', 'add_threshold', 'is_correct' keys
+    """
+    # Traslazione fissata a zero per entrambe le pose
+    pred_t = np.zeros(3)
+    gt_t = np.zeros(3)
+    return compute_add(pred_R, pred_t, gt_R, gt_t, model_points, diameter, threshold, symmetric)
+
+
+def compute_add_batch_rotation_only(
+    pred_R_batch: Union[np.ndarray, torch.Tensor],
+    gt_R_batch: Union[np.ndarray, torch.Tensor],
+    obj_ids: List[int],
+    models_dict: Dict[int, np.ndarray],
+    models_info: Dict[int, Dict],
+    symmetric_objects: List[int] = None,
+    threshold: float = None
+) -> Dict[str, List[float]]:
+    """
+    [CASO 1 - BATCH] Compute ADD per batch di predizioni di SOLO rotazione.
+    
+    Ottimizzato per valutare modelli ResNet che predicono solo quaternioni.
+    La traslazione è automaticamente impostata a zero.
+    
+    Args:
+        pred_R_batch: Predicted rotation matrices (B, 3, 3)
+        gt_R_batch: Ground truth rotation matrices (B, 3, 3)
+        obj_ids: Object IDs for each sample (B,)
+        models_dict: Dictionary mapping obj_id to 3D model points
+        models_info: Dictionary with object information (diameter, etc.)
+        symmetric_objects: List of symmetric object IDs (default: from Config.SYMMETRIC_OBJECTS)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
+        
+    Returns:
+        Dictionary with lists of ADD values and correctness
+    """
+    # Converti se necessario
+    if isinstance(pred_R_batch, torch.Tensor):
+        batch_size = pred_R_batch.shape[0]
+    else:
+        batch_size = pred_R_batch.shape[0]
+    
+    # Traslazione fissata a zero per tutte le pose
+    pred_t_batch = np.zeros((batch_size, 3))
+    gt_t_batch = np.zeros((batch_size, 3))
+    
+    return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                            obj_ids, models_dict, models_info, symmetric_objects, threshold)
+
+
+# ==================== 2. ResNet: Rotazione + Traslazione ====================
+
+def compute_add_full_pose(
+    pred_R: np.ndarray,
+    pred_t: np.ndarray,
+    gt_R: np.ndarray,
+    gt_t: np.ndarray,
+    model_points: np.ndarray,
+    diameter: float,
+    threshold: float = None,
+    symmetric: bool = False
+) -> Dict[str, float]:
+    """
+    [CASO 2] Compute ADD per modelli che predicono ROTAZIONE + TRASLAZIONE completa.
+    
+    Valuta la pose 6D completa (rotazione e traslazione).
+    Alias per compute_add() con nome più esplicito.
+    
+    Args:
+        pred_R: Predicted rotation matrix (3, 3)
+        pred_t: Predicted translation vector (3,)
+        gt_R: Ground truth rotation matrix (3, 3)
+        gt_t: Ground truth translation vector (3,)
+        model_points: 3D model points (N, 3)
+        diameter: Object diameter (for threshold calculation)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
+        symmetric: Whether to use ADD-S for symmetric objects
+        
+    Returns:
+        Dictionary with 'add', 'add_threshold', 'is_correct' keys
+    """
+    return compute_add(pred_R, pred_t, gt_R, gt_t, model_points, diameter, threshold, symmetric)
+
+
+def compute_add_batch_full_pose(
+    pred_R_batch: Union[np.ndarray, torch.Tensor],
+    pred_t_batch: Union[np.ndarray, torch.Tensor],
+    gt_R_batch: Union[np.ndarray, torch.Tensor],
+    gt_t_batch: Union[np.ndarray, torch.Tensor],
+    obj_ids: List[int],
+    models_dict: Dict[int, np.ndarray],
+    models_info: Dict[int, Dict],
+    symmetric_objects: List[int] = None,
+    threshold: float = None
+) -> Dict[str, List[float]]:
+    """
+    [CASO 2 - BATCH] Compute ADD per batch di pose complete (rotazione + traslazione).
+    
+    Valuta modelli che predicono la pose 6D completa.
+    Alias per compute_add_batch() con nome più esplicito.
+    
+    Args:
+        pred_R_batch: Predicted rotation matrices (B, 3, 3)
+        pred_t_batch: Predicted translations (B, 3)
+        gt_R_batch: Ground truth rotation matrices (B, 3, 3)
+        gt_t_batch: Ground truth translations (B, 3)
+        obj_ids: Object IDs for each sample (B,)
+        models_dict: Dictionary mapping obj_id to 3D model points
+        models_info: Dictionary with object information (diameter, etc.)
+        symmetric_objects: List of symmetric object IDs (default: from Config.SYMMETRIC_OBJECTS)
+        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
+        
+    Returns:
+        Dictionary with lists of ADD values and correctness
+    """
+    return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                            obj_ids, models_dict, models_info, symmetric_objects, threshold)
+
+
+# ==================== 3. Funzioni Generali (per uso avanzato/futuro) ====================
+
 def compute_add(
     pred_R: np.ndarray,
     pred_t: np.ndarray,
@@ -99,7 +256,10 @@ def compute_add(
     symmetric: bool = False
 ) -> Dict[str, float]:
     """
-    Compute ADD (Average Distance of Model Points) metric.
+    [GENERALE] Compute ADD (Average Distance of Model Points) metric.
+    
+    Funzione generale che supporta sia rotazione sola che pose complete.
+    Per uso specifico, preferire compute_add_rotation_only() o compute_add_full_pose().
     
     ADD = mean( || (R_pred * p + t_pred) - (R_gt * p + t_gt) || )
     
@@ -164,7 +324,11 @@ def compute_add_batch(
     threshold: float = None
 ) -> Dict[str, List[float]]:
     """
-    🚀 OPTIMIZED: Compute ADD metric for a batch of predictions.
+    [GENERALE - BATCH] 🚀 OPTIMIZED: Compute ADD metric for a batch of predictions.
+    
+    Funzione generale ottimizzata per batch. Per uso specifico, preferire:
+    - compute_add_batch_rotation_only() per modelli di sola rotazione
+    - compute_add_batch_full_pose() per modelli di pose completa
     
     VECTORIZED implementation eliminates Python loops:
     - Before: Loop over batch_size samples, ~10-15 seconds for 1,200 samples
@@ -283,10 +447,13 @@ def compute_add_batch_gpu(
     device: str = 'cuda'
 ) -> Dict[str, torch.Tensor]:
     """
-    🚀 GPU-ACCELERATED: Compute ADD metric entirely on GPU with PyTorch.
+    [AVANZATO - GPU] 🚀 GPU-ACCELERATED: Compute ADD metric entirely on GPU with PyTorch.
     
+    Versione GPU-ottimizzata per modelli avanzati o training on-device.
     10-50x faster than CPU version by avoiding GPU→CPU transfers.
     All computations stay on GPU, only final results transferred to CPU.
+    
+    Supporta sia rotazione sola (con t=0) che pose complete.
     
     Args:
         pred_R_batch: Predicted rotation matrices (B, 3, 3) on GPU
