@@ -233,7 +233,7 @@ class Config:
     https://docs.google.com/presentation/d/1xjmM6H0pYA9ytBX5lY7b-0Y52PoIMx_w1T90tcxe6wI
     
     """
-    LAMBDA_TRANS = 1.0  # Translation loss weight
+    LAMBDA_TRANS = 5.0  # Translation loss weight (aumentato da 1.0 a 5.0 per bilanciare meglio)
     LAMBDA_ROT = 50.0   # Rotation loss weight (10 -> 50)
     
     # Evaluation
