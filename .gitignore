@@ -1,6 +1,3 @@
-# Local folder for personal stuff
-personal/*
-
 # Virtual environments
 .venv/
 venv/
@@ -16,12 +13,15 @@ data/
 !data/.gitkeep
 
 # Model checkpoints
-checkpoints/*.pth
-!checkpoints/.gitkeep
+# checkpoints/*.pth
+# checkpoints/yolo/*/
+# !checkpoints/.gitkeep
+# !checkpoints/pretrained/
+*.zip
 
-# YOLO pretrained weights (downloaded automatically)
-yolov8*.pt
-yolov8*.yaml
+# YOLO pretrained weights in root (downloaded automatically)
+yolo11*.pt
+yolo11*.yaml
 yolo*.pt
 
 # Training logs
