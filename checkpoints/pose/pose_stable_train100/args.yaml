@@ -4,11 +4,11 @@ crop_margin: 0.15
 device: cuda
 dropout: 0.5
 effective_batch_size: 128
-epochs: 100
+epochs: 50
 freeze_backbone: false
 image_size: 224
 lambda_rot: 50.0
-lambda_trans: 1.0
+lambda_trans: 5.0
 lr_backbone: 5.0e-06
 lr_head: 0.0001
 phase: Phase 1 - Optimized
