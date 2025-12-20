@@ -106,8 +106,23 @@ def compute_translation_pinhole(
         >>> print(translation)  # [tx, ty, tz] in mm
         [45.2, -120.5, 850.3]
     """
-    x1, y1, x2, y2 = bbox
-    
+
+    # Gestione formato bbox: accetta sia [x1, y1, x2, y2] sia [x, y, w, h]
+    bbox = np.array(bbox, dtype=np.float32)
+    if bbox.shape[0] != 4:
+        raise ValueError(f"Bbox deve avere 4 elementi, ricevuto: {bbox}")
+    # Se bbox è [x, y, w, h] (w, h > 0 e x2 < x1 + w + 2), converti in [x1, y1, x2, y2]
+    x, y, w, h = bbox
+    if w > 0 and h > 0 and (bbox[2] < bbox[0] or bbox[3] < bbox[1]):
+        # Probabile [x, y, w, h]
+        x1, y1, x2, y2 = x, y, x + w, y + h
+    elif bbox[2] > bbox[0] and bbox[3] > bbox[1]:
+        # Già [x1, y1, x2, y2]
+        x1, y1, x2, y2 = bbox
+    else:
+        # Fallback: se w/h sono troppo piccoli o negativi, assume [x1, y1, x2, y2]
+        x1, y1, x2, y2 = bbox
+
     # ✅ Centro del bounding box (coordinate pixel)
     u = (x1 + x2) / 2.0
     v = (y1 + y2) / 2.0
