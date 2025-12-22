@@ -150,14 +150,3 @@ def clean_old_directory():
     else:
         print("🧹 Nessuna cartella temporanea trovata da rimuovere")
 
-
-if __name__ == '__main__':
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python organize_yolo_results.py <project_dir>")
-        sys.exit(1)
-    
-    project_dir = Path(sys.argv[1])
-    stats = organize_yolo_output(project_dir)
-    print_organization_summary(project_dir, stats)

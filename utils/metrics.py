@@ -583,30 +583,3 @@ def load_all_models(
     
     return models_dict
 
-
-if __name__ == '__main__':
-    # Test metrics
-    print("Testing ADD metric computation...\n")
-    
-    # Create dummy data
-    model_points = np.random.randn(1000, 3) * 50  # Random 3D points
-    
-    # Identity pose (should give ADD ≈ 0)
-    R_gt = np.eye(3)
-    t_gt = np.array([100.0, 200.0, 1000.0])
-    
-    # Small perturbation
-    R_pred = R_gt + np.random.randn(3, 3) * 0.01
-    t_pred = t_gt + np.random.randn(3) * 5.0
-    
-    diameter = 200.0
-    
-    # Compute ADD
-    result = compute_add(R_pred, t_pred, R_gt, t_gt, model_points, diameter)
-    
-    print(f"📊 ADD Metric:")
-    print(f"   ADD value: {result['add']:.2f} mm")
-    print(f"   Threshold (10% of diameter): {result['add_threshold']:.2f} mm")
-    print(f"   Correct: {result['is_correct']}")
-    
-    print(f"\n✅ Metrics tests completed")
