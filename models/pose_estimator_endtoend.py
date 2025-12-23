@@ -157,29 +157,3 @@ def create_pose_estimator(pretrained: bool = None, dropout: float = None,
     print(f"   Trainable: {params_info['trainable']:,}")
     
     return model
-
-
-if __name__ == '__main__':
-    # Test model creation
-    print("Testing PoseEstimator model...\n")
-    
-    # Create model (uses Config defaults)
-    model = create_pose_estimator()
-    
-    # Test forward pass
-    batch_size = 4
-    img_size = Config.POSE_IMAGE_SIZE
-    x = torch.randn(batch_size, 3, img_size, img_size)
-    
-    print(f"\n🧪 Testing forward pass:")
-    print(f"   Input shape: {x.shape}")
-    
-    quaternion, translation = model(x)
-    
-    print(f"   Quaternion shape: {quaternion.shape}")
-    print(f"   Translation shape: {translation.shape}")
-    print(f"   Quaternion norms: {torch.norm(quaternion, dim=1)}")
-    
-    # Test predict method
-    pred = model.predict(x)
-    print(f"\n✅ Prediction output keys: {list(pred.keys())}")
