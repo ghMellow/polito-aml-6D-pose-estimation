@@ -7,6 +7,7 @@ from PIL import Image
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, random_split
+from pathlib import Path
 from config import Config
 from utils.bbox_utils import crop_and_pad
 from utils.transforms import rotation_matrix_to_quaternion, get_pose_transforms
@@ -38,6 +39,11 @@ class LineMODPoseDataset(LineMODDatasetBase):
                 rgb_crop = self.transform(rgb_crop)
             cam_K = np.array(info_objs['cam_K']).reshape(3, 3) if 'cam_K' in info_objs else None
             obj_id = obj.get('obj_id', None)
+            # Percorsi depth/rgb centralizzati come in PosePinholeDataset
+            linemod_root = Path(Config.LINEMOD_ROOT)
+            base_path = linemod_root / 'data' / f"{folder_id:02d}"
+            depth_path = base_path / 'depth' / f"{sample_id:04d}.png"
+            rgb_path = base_path / 'rgb' / f"{sample_id:04d}.png"
             results.append({
                 'rgb_crop': rgb_crop,
                 'quaternion': torch.from_numpy(quaternion).float(),
@@ -47,7 +53,8 @@ class LineMODPoseDataset(LineMODDatasetBase):
                 'folder_id': folder_id,
                 'sample_id': sample_id,
                 'obj_id': obj_id,
-                'depth_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'depth' / f'{sample_id:04d}.png'),
+                'depth_path': str(depth_path),
+                'rgb_path': str(rgb_path),
                 'info_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'info.yml')
             })
         # Se vuoi un solo oggetto per immagine, restituisci results[0]
