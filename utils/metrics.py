@@ -26,112 +26,7 @@ import yaml
 
 from config import Config
 
-
-def load_3d_model(model_path: Union[str, Path]) -> np.ndarray:
-    """
-    Load 3D model points from PLY file.
-    
-    Args:
-        model_path: Path to .ply file
-        
-    Returns:
-        3D model points (N, 3)
-    """
-    model_path = Path(model_path)
-    
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model file not found: {model_path}")
-    
-    # Read PLY file
-    points = []
-    with open(model_path, 'r') as f:
-        # Skip header
-        in_header = True
-        vertex_count = 0
-        
-        for line in f:
-            line = line.strip()
-            
-            if in_header:
-                if line.startswith('element vertex'):
-                    vertex_count = int(line.split()[-1])
-                elif line.startswith('end_header'):
-                    in_header = False
-                continue
-            
-            # Parse vertex coordinates
-            parts = line.split()
-            if len(parts) >= 3:
-                try:
-                    x, y, z = float(parts[0]), float(parts[1]), float(parts[2])
-                    points.append([x, y, z])
-                except ValueError:
-                    continue
-            
-            if len(points) >= vertex_count and vertex_count > 0:
-                break
-    
-    points = np.array(points, dtype=np.float32)
-    
-    if len(points) == 0:
-        raise ValueError(f"No points loaded from {model_path}")
-    
-    return points
-
-
-def load_models_info(info_path: Union[str, Path]) -> Dict:
-    """
-    Load models information from models_info.yml.
-    
-    Args:
-        info_path: Path to models_info.yml
-        
-    Returns:
-        Dictionary with object information
-    """
-    info_path = Path(info_path)
-    
-    if not info_path.exists():
-        raise FileNotFoundError(f"Models info file not found: {info_path}")
-    
-    with open(info_path, 'r') as f:
-        models_info = yaml.safe_load(f)
-    
-    return models_info
-
-
 # ==================== 1. ResNet: Solo Rotazione ====================
-
-def compute_add_rotation_only(
-    pred_R: np.ndarray,
-    gt_R: np.ndarray,
-    model_points: np.ndarray,
-    diameter: float,
-    threshold: float = None,
-    symmetric: bool = False
-) -> Dict[str, float]:
-    """
-    [CASO 1] Compute ADD per modelli che predicono SOLO la rotazione (es. ResNet baseline).
-    
-    La traslazione è automaticamente impostata a zero (dummy) per entrambe le pose.
-    Questo è usato per modelli che stimano solo l'orientamento dell'oggetto.
-    
-    Args:
-        pred_R: Predicted rotation matrix (3, 3)
-        gt_R: Ground truth rotation matrix (3, 3)
-        model_points: 3D model points (N, 3)
-        diameter: Object diameter (for threshold calculation)
-        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
-        symmetric: Whether to use ADD-S for symmetric objects
-        
-    Returns:
-        Dictionary with 'add', 'add_threshold', 'is_correct' keys
-    """
-    # Traslazione fissata a zero per entrambe le pose
-    pred_t = np.zeros(3)
-    gt_t = np.zeros(3)
-    return compute_add(pred_R, pred_t, gt_R, gt_t, model_points, diameter, threshold, symmetric)
-
 
 def compute_add_batch_rotation_only(
     pred_R_batch: Union[np.ndarray, torch.Tensor],
@@ -169,44 +64,16 @@ def compute_add_batch_rotation_only(
     # Traslazione fissata a zero per tutte le pose
     pred_t_batch = np.zeros((batch_size, 3))
     gt_t_batch = np.zeros((batch_size, 3))
-    
-    return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
-                            obj_ids, models_dict, models_info, symmetric_objects, threshold)
+
+    if Config.GPU_PRESENT:
+        return compute_add_batch_gpu(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                                     obj_ids, models_dict, models_info, symmetric_objects, threshold)
+    else:
+        return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                                 obj_ids, models_dict, models_info, symmetric_objects, threshold)
 
 
 # ==================== 2. ResNet: Rotazione + Traslazione ====================
-
-def compute_add_full_pose(
-    pred_R: np.ndarray,
-    pred_t: np.ndarray,
-    gt_R: np.ndarray,
-    gt_t: np.ndarray,
-    model_points: np.ndarray,
-    diameter: float,
-    threshold: float = None,
-    symmetric: bool = False
-) -> Dict[str, float]:
-    """
-    [CASO 2] Compute ADD per modelli che predicono ROTAZIONE + TRASLAZIONE completa.
-    
-    Valuta la pose 6D completa (rotazione e traslazione).
-    Alias per compute_add() con nome più esplicito.
-    
-    Args:
-        pred_R: Predicted rotation matrix (3, 3)
-        pred_t: Predicted translation vector (3,)
-        gt_R: Ground truth rotation matrix (3, 3)
-        gt_t: Ground truth translation vector (3,)
-        model_points: 3D model points (N, 3)
-        diameter: Object diameter (for threshold calculation)
-        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
-        symmetric: Whether to use ADD-S for symmetric objects
-        
-    Returns:
-        Dictionary with 'add', 'add_threshold', 'is_correct' keys
-    """
-    return compute_add(pred_R, pred_t, gt_R, gt_t, model_points, diameter, threshold, symmetric)
-
 
 def compute_add_batch_full_pose(
     pred_R_batch: Union[np.ndarray, torch.Tensor],
@@ -239,78 +106,14 @@ def compute_add_batch_full_pose(
     Returns:
         Dictionary with lists of ADD values and correctness
     """
-    return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
-                            obj_ids, models_dict, models_info, symmetric_objects, threshold)
-
-
-# ==================== 3. Funzioni Generali (per uso avanzato/futuro) ====================
-
-def compute_add(
-    pred_R: np.ndarray,
-    pred_t: np.ndarray,
-    gt_R: np.ndarray,
-    gt_t: np.ndarray,
-    model_points: np.ndarray,
-    diameter: float,
-    threshold: float = None,
-    symmetric: bool = False
-) -> Dict[str, float]:
-    """
-    [GENERALE] Compute ADD (Average Distance of Model Points) metric.
-    
-    Funzione generale che supporta sia rotazione sola che pose complete.
-    Per uso specifico, preferire compute_add_rotation_only() o compute_add_full_pose().
-    
-    ADD = mean( || (R_pred * p + t_pred) - (R_gt * p + t_gt) || )
-    
-    For symmetric objects, uses ADD-S which finds minimum distance to any point.
-    
-    Args:
-        pred_R: Predicted rotation matrix (3, 3)
-        pred_t: Predicted translation vector (3,)
-        gt_R: Ground truth rotation matrix (3, 3)
-        gt_t: Ground truth translation vector (3,)
-        model_points: 3D model points (N, 3)
-        diameter: Object diameter (for threshold calculation)
-        threshold: Threshold as fraction of diameter (default: from Config.ADD_THRESHOLD)
-        symmetric: Whether to use ADD-S for symmetric objects
-        
-    Returns:
-        Dictionary with 'add', 'add_threshold', 'is_correct' keys
-    """
-    # Use Config default if not specified
-    if threshold is None:
-        threshold = Config.ADD_THRESHOLD
-    # Transform model points with predicted pose
-    pred_points = (pred_R @ model_points.T).T + pred_t  # (N, 3)
-    
-    # Transform model points with ground truth pose
-    gt_points = (gt_R @ model_points.T).T + gt_t  # (N, 3)
-    
-    if symmetric:
-        # ADD-S: For each predicted point, find closest GT point
-        # This handles symmetry ambiguity
-        from scipy.spatial.distance import cdist
-        distances = cdist(pred_points, gt_points)  # (N, N)
-        min_distances = np.min(distances, axis=1)  # (N,)
-        add_value = np.mean(min_distances)
+    if Config.GPU_PRESENT:
+        return compute_add_batch_gpu(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                                     obj_ids, models_dict, models_info, symmetric_objects, threshold)
     else:
-        # Standard ADD: Point-to-point distance
-        distances = np.linalg.norm(pred_points - gt_points, axis=1)  # (N,)
-        add_value = np.mean(distances)
-    
-    # Compute threshold
-    add_threshold = diameter * threshold
-    
-    # Check if prediction is correct
-    is_correct = add_value < add_threshold
-    
-    return {
-        'add': float(add_value),
-        'add_threshold': float(add_threshold),
-        'is_correct': bool(is_correct)
-    }
+        return compute_add_batch(pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch,
+                                 obj_ids, models_dict, models_info, symmetric_objects, threshold)
 
+# ==================== 3. Funzioni Generali ====================
 
 def compute_add_batch(
     pred_R_batch: Union[np.ndarray, torch.Tensor],
@@ -543,6 +346,78 @@ def compute_add_batch_gpu(
         'accuracy': float(is_correct_array.float().mean().item())
     }
 
+# ==================== 4. Load Models ====================
+
+def load_models_info(info_path: Union[str, Path]) -> Dict:
+    """
+    Load models information from models_info.yml.
+    
+    Args:
+        info_path: Path to models_info.yml
+        
+    Returns:
+        Dictionary with object information
+    """
+    info_path = Path(info_path)
+    
+    if not info_path.exists():
+        raise FileNotFoundError(f"Models info file not found: {info_path}")
+    
+    with open(info_path, 'r') as f:
+        models_info = yaml.safe_load(f)
+    
+    return models_info
+
+def load_3d_model(model_path: Union[str, Path]) -> np.ndarray:
+    """
+    Load 3D model points from PLY file.
+    
+    Args:
+        model_path: Path to .ply file
+        
+    Returns:
+        3D model points (N, 3)
+    """
+    model_path = Path(model_path)
+    
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    
+    # Read PLY file
+    points = []
+    with open(model_path, 'r') as f:
+        # Skip header
+        in_header = True
+        vertex_count = 0
+        
+        for line in f:
+            line = line.strip()
+            
+            if in_header:
+                if line.startswith('element vertex'):
+                    vertex_count = int(line.split()[-1])
+                elif line.startswith('end_header'):
+                    in_header = False
+                continue
+            
+            # Parse vertex coordinates
+            parts = line.split()
+            if len(parts) >= 3:
+                try:
+                    x, y, z = float(parts[0]), float(parts[1]), float(parts[2])
+                    points.append([x, y, z])
+                except ValueError:
+                    continue
+            
+            if len(points) >= vertex_count and vertex_count > 0:
+                break
+    
+    points = np.array(points, dtype=np.float32)
+    
+    if len(points) == 0:
+        raise ValueError(f"No points loaded from {model_path}")
+    
+    return points
 
 def load_all_models(
     models_dir: Union[str, Path] = None,
@@ -568,6 +443,7 @@ def load_all_models(
     
     models_dict = {}
     
+    print("Carico odelli 3D degli oggetti in memoria. \nQuesti vengono usati per calcolare la metrica ADD.")
     for obj_id in obj_ids:
         model_path = models_dir / f"obj_{obj_id:02d}.ply"
         
@@ -582,4 +458,3 @@ def load_all_models(
             print(f"⚠️  Model file not found: {model_path}")
     
     return models_dict
-

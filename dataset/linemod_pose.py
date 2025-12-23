@@ -6,7 +6,7 @@ from .linemod_base import LineMODDatasetBase
 from PIL import Image
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from config import Config
 from utils.bbox_utils import crop_and_pad
 from utils.transforms import rotation_matrix_to_quaternion, get_pose_transforms
@@ -47,16 +47,19 @@ class LineMODPoseDataset(LineMODDatasetBase):
                 'folder_id': folder_id,
                 'sample_id': sample_id,
                 'obj_id': obj_id,
-                'depth_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'depth' / f'{sample_id:04d}.png')
+                'depth_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'depth' / f'{sample_id:04d}.png'),
+                'info_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'info.yml')
             })
         # Se vuoi un solo oggetto per immagine, restituisci results[0]
         return results[0] if results else None
 
 def create_pose_dataloaders(dataset_root, batch_size, crop_margin, output_size, num_workers=0, folder_to_class_mapping=None):
     """
-    Helper per creare train/test dataloader LineMODPoseDataset con split ufficiale.
+    Helper per creare train/val/test dataloader LineMODPoseDataset.
+    Se TRAIN_TEST_RATIO è definito in Config, effettua split random su train per ottenere anche validation.
     """
-    train_dataset = LineMODPoseDataset(
+    # Dataset completo train (split ufficiale)
+    full_train_dataset = LineMODPoseDataset(
         dataset_root=dataset_root,
         split='train',
         crop_margin=crop_margin,
@@ -70,6 +73,15 @@ def create_pose_dataloaders(dataset_root, batch_size, crop_margin, output_size, 
         output_size=output_size,
         folder_to_class_mapping=folder_to_class_mapping
     )
+    # Split train/val
+    train_ratio = getattr(Config, 'TRAIN_TEST_RATIO', 0.8)
+    train_len = int(len(full_train_dataset) * train_ratio)
+    val_len = len(full_train_dataset) - train_len
+    
+    generator = torch.Generator().manual_seed(getattr(Config, 'RANDOM_SEED', 42))
+    train_dataset, val_dataset = random_split(full_train_dataset, [train_len, val_len], generator=generator)
+    
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return train_loader, test_loader
+    return train_loader, val_loader, test_loader

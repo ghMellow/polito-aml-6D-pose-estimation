@@ -95,6 +95,18 @@ class Config:
     
     # ==================== Adaptive Helpers ====================
     @staticmethod
+    def should_use_gpu_add():
+        """
+        Decide se usare la versione GPU per la metrica ADD.
+        Usa la GPU solo se torch.cuda.is_available().
+        """
+        try:
+            import torch
+            return torch.cuda.is_available()
+        except ImportError:
+            return False
+        
+    @staticmethod
     def get_optimal_workers(force_safe_mode=False):
         """
         Get optimal worker count based on device and CPU cores.
@@ -120,8 +132,7 @@ class Config:
         else:
             # CPU (including Colab): Conservative
             numworkers = 2
-        
-        print(f"Numworkers set to {numworkers}")
+            
         return numworkers
     
     @staticmethod
@@ -175,6 +186,7 @@ class Config:
         return use_amp
         
     # Adaptive device-specific helper optimizations
+    GPU_PRESENT = should_use_gpu_add()
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
     CACHE_STRATEGY = get_cache_strategy()  # Cache strategy: 'full', 'partial', or 'none'
     AMP_YOLO = should_use_amp_yolo()  # Automatic Mixed Precision for YOLO (CUDA only)
