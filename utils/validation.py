@@ -1,7 +1,13 @@
+import os
 import pandas as pd
 import numpy as np
-from config import Config
+import torch
+from tqdm import tqdm
 
+from config import Config
+from utils.pinhole import load_camera_intrinsics, compute_translation_pinhole
+from utils.transforms import quaternion_to_rotation_matrix_batch
+from utils.metrics import compute_add_batch_rotation_only, load_all_models, load_models_info, compute_add_batch_full_pose
 
 def save_validation_results(results_rot_only, results_pinhole, checkpoint_dir):
     """
@@ -115,21 +121,12 @@ def calc_pinhole_error_per_class(results_pinhole, linemod_objects):
     global_pinhole = pinhole_errors.mean()
     return data, global_pinhole
 
-def run_pinhole_deep_pipeline(model, test_loader):
+def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
     """
     Esegue la pipeline pinhole+deep per la valutazione su test set.
     Salva le metriche di validazione.
     """
-    import torch
-    import numpy as np
-    from tqdm import tqdm
-    from utils.pinhole import load_camera_intrinsics, compute_translation_pinhole
-    import os
-    from utils.transforms import quaternion_to_rotation_matrix_batch
-    from utils.metrics import compute_add_batch_rotation_only, load_all_models, load_models_info
-
-    NAME = "test_rotationonly_1"
-    checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / NAME
+    checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
     checkpoint_weights_dir = checkpoint_dir / "weights"
     best_path = checkpoint_weights_dir / "best.pt"
 
@@ -137,7 +134,7 @@ def run_pinhole_deep_pipeline(model, test_loader):
     try:
         model.load_state_dict(torch.load(best_path, map_location=Config.DEVICE))
         model.eval()
-        print(f"✅ Modello {NAME} caricato e in modalità eval!")
+        print(f"✅ Modello {name} caricato e in modalità eval!")
     except Exception as e:
         print(f"⚠️  Modello non trovato o già caricato. Errore: {e}")
         raise SystemExit("Stop right there!")    
@@ -214,3 +211,69 @@ def run_pinhole_deep_pipeline(model, test_loader):
 
     # Salva i risultati
     save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
+
+def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
+    """
+    Esegue la pipeline deep-only (senza pinhole) per la valutazione su test set.
+    Salva le metriche di validazione (ADD full pose) in CSV.
+    """
+    checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
+    checkpoint_weights_dir = checkpoint_dir / "weights"
+    best_path = checkpoint_weights_dir / "best.pt"
+
+    # Carica il modello trained (se necessario)
+    try:
+        model.load_state_dict(torch.load(best_path, map_location=Config.DEVICE))
+        model.eval()
+        print(f"✅ Modello {name} caricato e in modalità eval!")
+    except Exception as e:
+        print(f"⚠️  Modello non trovato o già caricato. Errore: {e}")
+        raise SystemExit("Stop right there!")
+
+    models_dict = load_all_models()
+    models_info = load_models_info(Config.MODELS_INFO_PATH)
+
+    all_pred_quaternions = []
+    all_gt_quaternions = []
+    all_obj_ids = []
+    all_pred_translations = []
+    all_gt_translations = []
+
+    with torch.no_grad():
+        for batch in tqdm(test_loader, desc="Valutazione su test set (deep-only)"):
+            images = batch['rgb_crop'].to(Config.DEVICE)
+            gt_quaternions = batch['quaternion'].to(Config.DEVICE)
+            gt_translations = batch['translation'].to(Config.DEVICE) if 'translation' in batch else None
+            obj_ids = batch['obj_id'].cpu().numpy()
+            pred_quaternions, pred_translations = model(images)
+            all_pred_quaternions.append(pred_quaternions.cpu())
+            all_gt_quaternions.append(gt_quaternions.cpu())
+            all_obj_ids.append(obj_ids)
+            all_pred_translations.append(pred_translations.cpu().numpy())
+            if gt_translations is not None:
+                all_gt_translations.append(gt_translations.cpu().numpy())
+
+    print("\nconcatenazione batch")
+    all_pred_quaternions = torch.cat(all_pred_quaternions, dim=0)
+    all_gt_quaternions = torch.cat(all_gt_quaternions, dim=0)
+    all_obj_ids = np.concatenate(all_obj_ids, axis=0)
+    all_pred_translations = np.concatenate(all_pred_translations, axis=0)
+    if all_gt_translations:
+        all_gt_translations = np.concatenate(all_gt_translations, axis=0)
+    else:
+        all_gt_translations = None
+
+    print("conversione da quaternioni a matrici di rotazione")
+    pred_R = quaternion_to_rotation_matrix_batch(all_pred_quaternions)
+    gt_R = quaternion_to_rotation_matrix_batch(all_gt_quaternions)
+
+    print("calcolo metriche: ADD full pose (deep-only)")
+    results_full_pose = compute_add_batch_full_pose(
+        pred_R, all_pred_translations, gt_R, all_gt_translations, all_obj_ids, models_dict, models_info
+    )
+    results_full_pose['obj_ids'] = all_obj_ids
+
+    # Salva i risultati di validazione in un file CSV
+    from utils.validation import save_validation_results
+    save_validation_results(results_full_pose, None, checkpoint_dir)
+    print(f"✅ Risultati di validazione (deep-only) salvati in {checkpoint_dir / 'validation_result.csv'}")
