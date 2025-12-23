@@ -16,7 +16,7 @@ def _init_training_dirs_and_files(checkpoint_dir, training_config, csv_header):
     os.makedirs(checkpoint_dir, exist_ok=True)
     weights_dir = os.path.join(checkpoint_dir, 'weights')
     os.makedirs(weights_dir, exist_ok=True)
-    results_file = os.path.join(checkpoint_dir, 'results.csv')
+    results_file = os.path.join(checkpoint_dir, 'training_result.csv')
     if training_config is not None:
         args_path = os.path.join(checkpoint_dir, 'args.yaml')
         with open(args_path, 'w') as f:

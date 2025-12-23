@@ -73,36 +73,6 @@ def show_per_class_table(results, class_dict):
     print("\nMedia globale ADD:", f"{add_values.mean():.2f}")
     print("Accuracy globale (%):", f"{is_correct.mean()*100:.1f}")
 
-def plot_add_per_class(results, class_dict):
-    """
-    Bar plot of mean ADD per class.
-    Args:
-        results: dict with 'obj_ids', 'add_values'
-        class_dict: dict mapping obj_id to class info (e.g., Config.LINEMOD_OBJECTS)
-    """
-    import numpy as np
-    obj_ids = np.array(results['obj_ids'])
-    add_values = np.array(results['add_values'])
-    class_names = []
-    mean_adds = []
-    for obj_id, obj_name in class_dict.items():
-        mask = obj_ids == obj_id
-        if np.sum(mask) == 0:
-            continue
-        class_names.append(f"{obj_id:02d} - {obj_name.get('name')}")
-        mean_adds.append(add_values[mask].mean())
-    plt.figure(figsize=(10, 5))
-    bars = plt.bar(class_names, mean_adds, color='skyblue')
-    plt.ylabel('Media ADD')
-    plt.xlabel('Classe')
-    plt.title('Media ADD per Classe (LineMOD)')
-    plt.xticks(rotation=45, ha='right')
-    for bar, value in zip(bars, mean_adds):
-        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f'{value:.2f}', ha='center', va='bottom', fontsize=9)
-    plt.tight_layout()
-    plt.show()
-
-
 def show_pose_samples(batch, n=4):
     """
     Visualizza alcuni sample del batch del pose dataset (immagini già croppate, quaternion, obj_id).
@@ -190,5 +160,64 @@ def show_pose_samples_with_add(images, gt_quaternions, pred_quaternions, obj_ids
         color = 'green' if add_val < threshold else 'orange' if add_val < threshold*2.5 else 'red'
         axes[i].set_title(title, fontsize=9, color=color, fontweight='bold')
         axes[i].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+def plot_add_per_class(results, class_dict):
+    """
+    Bar plot of mean ADD per class.
+    Args:
+        results: dict with 'obj_ids', 'add_values'
+        class_dict: dict mapping obj_id to class info (e.g., Config.LINEMOD_OBJECTS)
+    """
+    import numpy as np
+    obj_ids = np.array(results['obj_ids'])
+    add_values = np.array(results['add_values'])
+    class_names = []
+    mean_adds = []
+    for obj_id, obj_name in class_dict.items():
+        mask = obj_ids == obj_id
+        if np.sum(mask) == 0:
+            continue
+        class_names.append(f"{obj_id:02d} - {obj_name.get('name')}")
+        mean_adds.append(add_values[mask].mean())
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(class_names, mean_adds, color='skyblue')
+    plt.ylabel('Media ADD')
+    plt.xlabel('Classe')
+    plt.title('Media ADD per Classe (LineMOD)')
+    plt.xticks(rotation=45, ha='right')
+    for bar, value in zip(bars, mean_adds):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f'{value:.2f}', ha='center', va='bottom', fontsize=9)
+    plt.tight_layout()
+    plt.show()
+
+def plot_pinhole_error_per_class(results_pinhole, class_dict):
+    """
+    Bar plot of mean pinhole translation error per class.
+    Args:
+        results_pinhole: dict with 'obj_ids', 'pinhole_errors'
+        class_dict: dict mapping obj_id to class info (e.g., Config.LINEMOD_OBJECTS)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    obj_ids = np.array(results_pinhole['obj_ids'])
+    pinhole_errors = np.array(results_pinhole['pinhole_errors'])
+    class_names = []
+    mean_pinhole = []
+    for obj_id, obj_name in class_dict.items():
+        mask = obj_ids == obj_id
+        if np.sum(mask) == 0:
+            continue
+        class_names.append(f"{obj_id:02d} - {obj_name.get('name')}")
+        mean_pinhole.append(pinhole_errors[mask].mean())
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(class_names, mean_pinhole, color='salmon')
+    plt.ylabel('Err. Pinhole medio (mm)')
+    plt.xlabel('Classe')
+    plt.title('Errore medio Pinhole per Classe (LineMOD)')
+    plt.xticks(rotation=45, ha='right')
+    for bar, value in zip(bars, mean_pinhole):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f'{value:.2f}', ha='center', va='bottom', fontsize=9)
     plt.tight_layout()
     plt.show()
