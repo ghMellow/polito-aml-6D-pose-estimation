@@ -247,6 +247,7 @@ class YOLODetector:
         print(f"   LR (initial → final): {lr0} → {lrf}")
         print(f"   Optimizer: {Config.YOLO_OPTIMIZER}")
         print(f"   Device: {self.device}")
+        print("")
         
         # Set default training parameters optimized for fine-tuning
         default_params = {

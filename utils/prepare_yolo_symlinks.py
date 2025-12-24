@@ -141,7 +141,7 @@ def prepare_yolo_dataset_symlinks(dataset_root, output_root, use_symlinks=True):
                             out_of_bounds = any((v < 0.0 or v > 1.0) for v in orig_vals)
                             if out_of_bounds:
                                 stats['clipped'] += 1
-                                print(f"⚠️  Out-of-bounds bbox for {new_name}.png: original={orig_vals}")
+                                print(f"⚙️ Out-of-bounds bbox per {new_name}.png: original={orig_vals} → CLIPPED in [0,1] (nessun errore, bbox corretta)")
                                 # Clip values to [0,1]
                                 x_c = min(max(x_c, 0.0), 1.0)
                                 y_c = min(max(y_c, 0.0), 1.0)

@@ -71,7 +71,7 @@ class Config:
     YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
     
     # Training hyperparameters
-    YOLO_EPOCHS = 20  # Poche epoche per test veloce
+    YOLO_EPOCHS = 5  # Poche epoche per test veloce
     YOLO_BATCH_SIZE = 32 # Ridotto da 64 (se hai RAM limitata)
     YOLO_IMG_SIZE = 416
     YOLO_PATIENCE = 10  # Early stopping patience

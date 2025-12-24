@@ -77,42 +77,42 @@ def rotation_matrix_to_quaternion(R: Union[np.ndarray, torch.Tensor]) -> Union[n
     return q
 
 
-def quaternion_to_rotation_matrix(q: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
-    """
-    Convert quaternion to rotation matrix.
+# def quaternion_to_rotation_matrix(q: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+#     """
+#     Convert quaternion to rotation matrix.
     
-    Args:
-        q: Quaternion [qw, qx, qy, qz] (4,) where qw is the scalar part
+#     Args:
+#         q: Quaternion [qw, qx, qy, qz] (4,) where qw is the scalar part
         
-    Returns:
-        Rotation matrix (3, 3)
+#     Returns:
+#         Rotation matrix (3, 3)
         
-    Reference:
-        https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/
-    """
-    is_torch = isinstance(q, torch.Tensor)
+#     Reference:
+#         https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/
+#     """
+#     is_torch = isinstance(q, torch.Tensor)
     
-    if is_torch:
-        device = q.device
-        q = q.cpu().numpy()
+#     if is_torch:
+#         device = q.device
+#         q = q.cpu().numpy()
     
-    # Ensure normalized
-    q = q / np.linalg.norm(q)
+#     # Ensure normalized
+#     q = q / np.linalg.norm(q)
     
-    qw, qx, qy, qz = q
+#     qw, qx, qy, qz = q
     
-    # Compute rotation matrix
-    R = np.array([
-        [1 - 2*qy**2 - 2*qz**2,     2*qx*qy - 2*qz*qw,     2*qx*qz + 2*qy*qw],
-        [2*qx*qy + 2*qz*qw,         1 - 2*qx**2 - 2*qz**2, 2*qy*qz - 2*qx*qw],
-        [2*qx*qz - 2*qy*qw,         2*qy*qz + 2*qx*qw,     1 - 2*qx**2 - 2*qy**2]
-    ])
+#     # Compute rotation matrix
+#     R = np.array([
+#         [1 - 2*qy**2 - 2*qz**2,     2*qx*qy - 2*qz*qw,     2*qx*qz + 2*qy*qw],
+#         [2*qx*qy + 2*qz*qw,         1 - 2*qx**2 - 2*qz**2, 2*qy*qz - 2*qx*qw],
+#         [2*qx*qz - 2*qy*qw,         2*qy*qz + 2*qx*qw,     1 - 2*qx**2 - 2*qy**2]
+#     ])
     
-    # Convert back to torch if needed
-    if is_torch:
-        R = torch.from_numpy(R).float().to(device)
+#     # Convert back to torch if needed
+#     if is_torch:
+#         R = torch.from_numpy(R).float().to(device)
     
-    return R
+#     return R
 
 
 def quaternion_to_rotation_matrix_batch(quaternions: torch.Tensor) -> torch.Tensor:
@@ -166,17 +166,17 @@ def quaternion_to_rotation_matrix_batch(quaternions: torch.Tensor) -> torch.Tens
     return R
 
 
-def normalize_quaternion(q: torch.Tensor) -> torch.Tensor:
-    """
-    Normalize quaternion to unit length.
+# def normalize_quaternion(q: torch.Tensor) -> torch.Tensor:
+#     """
+#     Normalize quaternion to unit length.
     
-    Args:
-        q: Quaternion tensor (..., 4)
+#     Args:
+#         q: Quaternion tensor (..., 4)
         
-    Returns:
-        Normalized quaternion (..., 4)
-    """
-    return q / torch.norm(q, dim=-1, keepdim=True)
+#     Returns:
+#         Normalized quaternion (..., 4)
+#     """
+#     return q / torch.norm(q, dim=-1, keepdim=True)
 
 
 def crop_image_from_bbox(
@@ -306,82 +306,82 @@ def get_pose_transforms(train: bool = True, color_jitter: bool = None) -> T.Comp
     return transforms
 
 
-def denormalize_image(tensor: torch.Tensor) -> torch.Tensor:
-    """
-    Denormalize image tensor for visualization.
+# def denormalize_image(tensor: torch.Tensor) -> torch.Tensor:
+#     """
+#     Denormalize image tensor for visualization.
     
-    Args:
-        tensor: Normalized image tensor (3, H, W) or (B, 3, H, W)
+#     Args:
+#         tensor: Normalized image tensor (3, H, W) or (B, 3, H, W)
         
-    Returns:
-        Denormalized tensor in [0, 1] range
-    """
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
+#     Returns:
+#         Denormalized tensor in [0, 1] range
+#     """
+#     mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
+#     std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
     
-    if tensor.device != mean.device:
-        mean = mean.to(tensor.device)
-        std = std.to(tensor.device)
+#     if tensor.device != mean.device:
+#         mean = mean.to(tensor.device)
+#         std = std.to(tensor.device)
     
-    # Handle batch dimension
-    if tensor.dim() == 4:
-        mean = mean.unsqueeze(0)
-        std = std.unsqueeze(0)
+#     # Handle batch dimension
+#     if tensor.dim() == 4:
+#         mean = mean.unsqueeze(0)
+#         std = std.unsqueeze(0)
     
-    denorm = tensor * std + mean
-    return torch.clamp(denorm, 0, 1)
+#     denorm = tensor * std + mean
+#     return torch.clamp(denorm, 0, 1)
 
 
-def project_3d_points(
-    points_3d: np.ndarray,
-    R: np.ndarray,
-    t: np.ndarray,
-    K: np.ndarray
-) -> np.ndarray:
-    """
-    Project 3D points to 2D image plane using camera parameters.
+# def project_3d_points(
+#     points_3d: np.ndarray,
+#     R: np.ndarray,
+#     t: np.ndarray,
+#     K: np.ndarray
+# ) -> np.ndarray:
+#     """
+#     Project 3D points to 2D image plane using camera parameters.
     
-    Args:
-        points_3d: 3D points (N, 3)
-        R: Rotation matrix (3, 3)
-        t: Translation vector (3,)
-        K: Camera intrinsic matrix (3, 3)
+#     Args:
+#         points_3d: 3D points (N, 3)
+#         R: Rotation matrix (3, 3)
+#         t: Translation vector (3,)
+#         K: Camera intrinsic matrix (3, 3)
         
-    Returns:
-        2D projected points (N, 2)
-    """
-    # Transform points to camera frame
-    points_cam = (R @ points_3d.T).T + t  # (N, 3)
+#     Returns:
+#         2D projected points (N, 2)
+#     """
+#     # Transform points to camera frame
+#     points_cam = (R @ points_3d.T).T + t  # (N, 3)
     
-    # Project to image plane
-    points_2d_homo = (K @ points_cam.T).T  # (N, 3)
+#     # Project to image plane
+#     points_2d_homo = (K @ points_cam.T).T  # (N, 3)
     
-    # Normalize by depth
-    points_2d = points_2d_homo[:, :2] / points_2d_homo[:, 2:3]
+#     # Normalize by depth
+#     points_2d = points_2d_homo[:, :2] / points_2d_homo[:, 2:3]
     
-    return points_2d
+#     return points_2d
 
 
-def get_3d_bbox_corners(size_x: float, size_y: float, size_z: float, 
-                       min_x: float, min_y: float, min_z: float) -> np.ndarray:
-    """
-    Get 3D bounding box corner points.
+# def get_3d_bbox_corners(size_x: float, size_y: float, size_z: float, 
+#                        min_x: float, min_y: float, min_z: float) -> np.ndarray:
+#     """
+#     Get 3D bounding box corner points.
     
-    Args:
-        size_x, size_y, size_z: Size of the bounding box
-        min_x, min_y, min_z: Minimum coordinates
+#     Args:
+#         size_x, size_y, size_z: Size of the bounding box
+#         min_x, min_y, min_z: Minimum coordinates
         
-    Returns:
-        8 corner points (8, 3)
-    """
-    corners = np.array([
-        [min_x, min_y, min_z],
-        [min_x + size_x, min_y, min_z],
-        [min_x + size_x, min_y + size_y, min_z],
-        [min_x, min_y + size_y, min_z],
-        [min_x, min_y, min_z + size_z],
-        [min_x + size_x, min_y, min_z + size_z],
-        [min_x + size_x, min_y + size_y, min_z + size_z],
-        [min_x, min_y + size_y, min_z + size_z]
-    ])
-    return corners
+#     Returns:
+#         8 corner points (8, 3)
+#     """
+#     corners = np.array([
+#         [min_x, min_y, min_z],
+#         [min_x + size_x, min_y, min_z],
+#         [min_x + size_x, min_y + size_y, min_z],
+#         [min_x, min_y + size_y, min_z],
+#         [min_x, min_y, min_z + size_z],
+#         [min_x + size_x, min_y, min_z + size_z],
+#         [min_x + size_x, min_y + size_y, min_z + size_z],
+#         [min_x, min_y + size_y, min_z + size_z]
+#     ])
+#     return corners
