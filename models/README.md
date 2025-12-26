@@ -1,87 +1,89 @@
-# Models Module
+# Modulo `models/` – 6D Pose Estimation
 
-Questo modulo contiene le implementazioni dei modelli neurali per object detection e pose estimation.
+## 1. Panoramica
+Questa cartella contiene tutte le implementazioni dei modelli principali per la pipeline di stima della posa 6D. Qui sono definiti i modelli di **object detection** (YOLO) e di **6D pose estimation** (sia baseline che end-to-end), utilizzati per rilevare oggetti e stimarne posizione e orientamento nello spazio. I modelli sono progettati per essere modulari, facilmente estendibili e integrabili nella pipeline del progetto.
 
-## File
+## 2. Struttura della cartella
+- `yolo_detector.py` — Wrapper per YOLOv11 (Ultralytics) per object detection
+- `pose_estimator_baseline.py` — Modello baseline: stima solo la rotazione (quaternion) con ResNet-50, traslazione calcolata geometricamente
+- `pose_estimator_endtoend.py` — Modello end-to-end: stima sia rotazione (quaternion) che traslazione (vettore 3D) con ResNet-50
+- `__init__.py` — Rende la cartella un modulo Python
+- `README.md` — Questo file
 
-### `__init__.py`
-File di inizializzazione del modulo Python che rende la directory un package importabile.
-
-### `pose_estimator_endtoend.py`
-Modello di deep learning per la stima della posa 6D degli oggetti.
-
-**Architettura:**
-- Backbone: ResNet-50 (pretrained su ImageNet)
-- Output: 7 valori (4 quaternione + 3 traslazione)
-- Regressione diretta della posa da immagine croppata
-
-**Caratteristiche:**
-- Normalizzazione automatica del quaternione (unit length)
-- Opzione per congelare il backbone (training più veloce)
-- Dropout configurabile per regolarizzazione
-- Predizione separata di rotazione e traslazione
-
-**Classe principale:** `PoseEstimator(nn.Module)`
-
-**Metodi:**
-- `forward()`: Predizione durante training
-- `predict()`: Predizione con output formattato per inference
+## 3. Componenti/Moduli principali
 
 ### `yolo_detector.py`
-Wrapper per yolo (Ultralytics) adattato per LineMOD.
+- **Cosa fa:**
+  - Fornisce una classe `YOLODetector` che incapsula la logica di caricamento, training, validazione e inferenza di modelli YOLOv11 tramite Ultralytics.
+  - Permette di personalizzare il numero di classi, congelare il backbone, esportare il modello e visualizzare le predizioni.
+- **Classi/Funzioni principali:**
+  - `YOLODetector`: wrapper completo per YOLOv11 (inizializzazione, train, predict, validate, export, freeze_backbone, ecc.)
+  - `visualize_detections`: funzione per visualizzare le predizioni su immagini
+- **Dipendenze chiave:**
+  - `ultralytics` (YOLO), `torch`, `numpy`, `config.Config`
 
-**Caratteristiche:**
-- Interfaccia per modelli yolo (n/s/m/l/x variants)
-- Gestione automatica del download dei pesi pretrained
-- Supporto per fine-tuning con freeze del backbone
-- Salvataggio dei pesi in directory personalizzata (checkpoints/)
-- Compatibile con 13 classi LineMOD
+### `pose_estimator_baseline.py`
+- **Cosa fa:**
+  - Implementa il modello baseline richiesto: la rotazione viene stimata da una ResNet-50, la traslazione è calcolata con il modello di camera pinhole (non appresa).
+- **Classi/Funzioni principali:**
+  - `PoseEstimatorBaseline`: modulo PyTorch che predice solo la rotazione (quaternion)
+  - `create_pose_estimator_baseline`: factory function per istanziare e configurare il modello
+- **Dipendenze chiave:**
+  - `torch`, `torchvision`, `config.Config`, `utils.pinhole` (per la traslazione)
 
-**Classe principale:** `YOLODetector`
+### `pose_estimator_endtoend.py`
+- **Cosa fa:**
+  - Implementa un modello end-to-end per la stima della posa 6D: sia rotazione (quaternion) che traslazione sono apprese da una ResNet-50.
+- **Classi/Funzioni principali:**
+  - `PoseEstimator`: modulo PyTorch che predice rotazione e traslazione
+  - `create_pose_estimator`: factory function per istanziare e configurare il modello
+- **Dipendenze chiave:**
+  - `torch`, `torchvision`, `config.Config`
 
-**Metodi:**
-- `train()`: Fine-tuning su dataset custom
-- `predict()`: Detection con confidence filtering
-- `freeze_backbone()`: Congela layer per transfer learning
-- `save()` / `load()`: Gestione checkpoints
+## 4. Utilizzo: Esempi pratici
 
-## Differenze tra i Modelli
-
-| Caratteristica | `pose_estimator_endtoend.py` | `yolo_detector.py` |
-|---------------|---------------------|-------------------|
-| **Task** | 6D Pose Estimation | Object Detection |
-| **Input** | Immagine croppata (224×224) | Immagine completa (416-640) |
-| **Output** | Quaternione (4D) + Traslazione (3D) | Bounding boxes + Class IDs |
-| **Backbone** | ResNet-50 (classificazione) | yolo (detection) |
-| **Training** | Custom PyTorch training loop | Ultralytics API |
-| **Loss** | PoseLoss (geodesic + L1) | YOLO Loss (multi-task) |
-| **Metrica** | ADD/ADD-S | mAP@0.5, Precision, Recall |
-| **Uso tipico** | Dopo detection, per posa precisa | Prima fase: localizzazione oggetti |
-
-## Pipeline Completa
-
-```
-Immagine RGB
-    ↓
-[YOLODetector] → Bounding Boxes + Class IDs
-    ↓
-Crop oggetti rilevati
-    ↓
-[PoseEstimator] → Pose 6D (R, t) per ogni oggetto
-    ↓
-Posa finale
-```
-
-## Uso
-
+### YOLODetector: rilevamento oggetti
 ```python
-# Object Detection
 from models.yolo_detector import YOLODetector
-detector = YOLODetector(model_name='yolo11n', pretrained=True, num_classes=13)
-boxes = detector.predict(images)
 
-# Pose Estimation
-from models.pose_estimator_endtoend import PoseEstimator
-pose_model = PoseEstimator(pretrained=True, dropout=0.3)
-quaternion, translation = pose_model(cropped_images)
+yolo = YOLODetector(model_name='yolo11n', pretrained=True, num_classes=13)
+results = yolo.predict('path/to/image.jpg')
+# results: lista di oggetti rilevati
 ```
+
+### PoseEstimatorBaseline: stima rotazione (baseline)
+```python
+from models.pose_estimator_baseline import create_pose_estimator_baseline
+
+model = create_pose_estimator_baseline(pretrained=True, freeze_backbone=False)
+model.eval()
+# x = batch di immagini torch (B, 3, H, W)
+quaternion = model(x)  # (B, 4)
+```
+
+### PoseEstimator (end-to-end): stima rotazione e traslazione
+```python
+from models.pose_estimator_endtoend import create_pose_estimator
+
+model = create_pose_estimator(pretrained=True, freeze_backbone=False)
+model.eval()
+# x = batch di immagini torch (B, 3, H, W)
+pred = model.predict(x)
+# pred['quaternion']: (B, 4), pred['translation']: (B, 3)
+```
+
+## 5. Note tecniche e convenzioni
+- **Configurazione centralizzata:** Tutti i modelli leggono i parametri di default da `config.Config` (device, dropout, learning rate, ecc.).
+- **PyTorch best practices:**
+  - Uso di `nn.Sequential` per il backbone e le teste di regressione
+  - Normalizzazione dei quaternioni in output (norma unitaria)
+  - Possibilità di congelare il backbone per il fine-tuning
+- **Compatibilità YOLO:** Il wrapper gestisce sia pesi pre-addestrati che custom, e permette l’esportazione in vari formati (ONNX, TorchScript, ecc.).
+- **Baseline vs End-to-End:**
+  - *Baseline*: solo rotazione appresa, traslazione calcolata geometricamente (pinhole)
+  - *End-to-End*: sia rotazione che traslazione apprese dal modello
+- **Esempi e workflow:** Vedi anche le notebook nella cartella `notebooks/` e i commenti nei moduli per pipeline complete.
+
+---
+
+Per dettagli su training, validazione e pipeline, consultare la documentazione nei singoli file e le notebook di esempio.

@@ -10,7 +10,7 @@ pyproject.toml
 
 # Dataset
 data/
-!data/.gitkeep
+!data/README.md
 
 # Model checkpoints
 # checkpoints/*.pth

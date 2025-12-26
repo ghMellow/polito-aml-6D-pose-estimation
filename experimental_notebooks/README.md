@@ -1,156 +1,87 @@
-# Test Notebooks
+# Experimental Notebooks – Panoramica e Guida
 
-Questa cartella contiene Jupyter Notebooks per il testing e validazione dei componenti del progetto.
+## 1. Panoramica
+Questa cartella raccoglie notebook Jupyter di esplorazione, test e confronto relativi al progetto di 6D pose estimation. I notebook sono pensati per:
+- Analizzare dati e pipeline
+- Sperimentare modelli e strategie di training
+- Eseguire confronti quantitativi e qualitativi tra soluzioni
+- Documentare risultati intermedi e finali
 
-## File
+## 2. Struttura della cartella
+- `test1_explore_linemod.ipynb` – Esplorazione e visualizzazione del dataset LineMOD
+- `test2_yolo1_pretrained.ipynb` – Test e analisi YOLO pre-addestrato
+- `test3_yolo2_finetuning.ipynb` – Fine-tuning YOLO e valutazione
+- `test4_ResNet50_pose_rotation_only.ipynb` – Training/valutazione ResNet50 solo rotazione
+- `test4_RestNet50_pose_finetuning.ipynb` – Fine-tuning ResNet50 per pose
+- `test5_baseline_pinhole_pipeline.ipynb` – Pipeline baseline: detection + pinhole + ResNet
+- `test6_extension_endtoend_pipeline.ipynb` – Pipeline estesa: end-to-end pose estimation
+- `test7_baseline_vs_extension_comparison.ipynb` – Confronto quantitativo/qualitativo tra pipeline baseline ed estesa
+- `README.md` – Questo file
 
-### `test_yolo.ipynb`
-Notebook per testare il detector yolo.
+## 3. Componenti/Moduli principali
 
-**Test inclusi:**
-- Caricamento modello YOLO (pretrained/fine-tuned)
-- Inferenza su singole immagini
-- Validazione bounding box predictions
-- Visualizzazione detection results
-- Test confidence thresholds
-- Performance testing (FPS, latency)
+### `test1_explore_linemod.ipynb`
+- **Cosa fa:**
+  - Esplora la struttura del dataset LineMOD, visualizza immagini, annotazioni, bounding box.
+- **Dipendenze chiave:**
+  - `matplotlib`, `PIL`, `numpy`, moduli dataset custom
 
-**Verifica:**
-- ✅ YOLO carica correttamente pesi
-- ✅ Detection funzionano su immagini LineMOD
-- ✅ Bounding box sono accurati
-- ✅ Classi corrette (13 oggetti LineMOD)
+### `test5_baseline_pinhole_pipeline.ipynb`
+- **Cosa fa:**
+  - Implementa la pipeline baseline: detection (YOLO), stima traslazione con pinhole, stima rotazione con ResNet.
+- **Dipendenze chiave:**
+  - `torch`, `models.pose_estimator_baseline`, `models.yolo_detector`, `utils.pinhole`, `utils.transforms`
 
-**Uso tipico:**
-```python
-from models.yolo_detector import YOLODetector
-detector = YOLODetector('yolo11n.pt')
-results = detector.predict(test_images)
-# Visualizza results
-```
+### `test6_extension_endtoend_pipeline.ipynb`
+- **Cosa fa:**
+  - Implementa la pipeline estesa: modello end-to-end che stima rotazione e traslazione direttamente.
+- **Dipendenze chiave:**
+  - `torch`, `models.pose_estimator_endtoend`, `models.yolo_detector`, `utils.transforms`
 
-### `test_pose_estimation.ipynb`
-Notebook per testare il modello di pose estimation.
+### `test7_baseline_vs_extension_comparison.ipynb`
+- **Cosa fa:**
+  - Esegue un confronto quantitativo e qualitativo tra pipeline baseline e pipeline estesa, con metriche, grafici e visualizzazioni side-by-side.
+- **Dipendenze chiave:**
+  - `torch`, `matplotlib`, `pandas`, `models`, `utils`, `scipy.spatial.transform`, `PIL`, `yaml`
 
-**Test inclusi:**
-- Caricamento PoseEstimator con checkpoint
-- Forward pass con immagini test
-- Validazione output (quaternioni normalizzati)
-- Conversione quaternioni → matrici rotazione
-- Calcolo metrica ADD
-- Visualizzazione pose 3D predette
-- Confronto con ground truth
+## 4. Utilizzo – Esempi pratici
 
-**Verifica:**
-- ✅ Modello produce output validi (7 valori)
-- ✅ Quaternioni normalizzati (||q|| = 1)
-- ✅ Traslazioni in range realistico
-- ✅ ADD score ragionevole
-- ✅ Gradient flow (per debugging training)
-
-**Uso tipico:**
-```python
-from models.pose_estimator_endtoend import PoseEstimator
-model = PoseEstimator(pretrained=True)
-quaternion, translation = model(cropped_images)
-R = quaternion_to_rotation_matrix(quaternion)
-```
-
-### `test_local_dataset.ipynb`
-Notebook per validare i dataset loaders.
-
-**Test inclusi:**
-- Verifica struttura dataset LineMOD
-- Test `CustomDataset` loading
-- Test `LinemodYOLODataset` loading
-- Validazione annotazioni (bbox, pose, mask)
-- Confronto formato dati train vs test
-- Statistiche dataset (dimensioni, distribuzione classi)
-- Visualizzazione samples con annotazioni
-
-**Verifica:**
-- ✅ Dataset path corretti
-- ✅ Train/test split consistenti
-- ✅ Annotazioni valide (no NaN/Inf)
-- ✅ Immagini caricano correttamente
-- ✅ Formato bbox/pose corretto
-- ✅ Camera intrinsics disponibili
-
-**Uso tipico:**
-```python
-from dataset.custom_dataset import CustomDataset
-dataset = CustomDataset('data/Linemod_preprocessed', split='train')
-sample = dataset[0]
-# Visualizza rgb, depth, bbox, pose
-```
-
-## Differenze tra Test Notebooks
-
-| Notebook | Componente Testato | Input | Output Atteso | Metriche |
-|----------|-------------------|-------|---------------|----------|
-| `test_yolo.ipynb` | YOLODetector | Immagini RGB | Bounding boxes | mAP, Precision |
-| `test_pose_estimation.ipynb` | PoseEstimator | Crop RGB | Quaternione + t | ADD, ADD-S |
-| `test_local_dataset.ipynb` | Dataset loaders | File path | Batch dati | Validità dati |
-
-## Workflow Testing Tipico
-
-```
-1. test_local_dataset.ipynb
-   → Verifica dataset è OK
-   ↓
-2. test_yolo.ipynb
-   → Testa detection pipeline
-   ↓
-3. test_pose_estimation.ipynb
-   → Testa pose estimation pipeline
-```
-
-## Quando Usare Questi Notebook
-
-### Prima del Training
-- ✅ `test_local_dataset.ipynb`: Valida dataset
-- ✅ Verifica che tutti i sample caricano
-
-### Durante il Training
-- ✅ `test_yolo.ipynb`: Monitora performance detection
-- ✅ `test_pose_estimation.ipynb`: Monitora convergenza loss
-
-### Dopo il Training
-- ✅ Tutti e tre: Valuta modelli finali
-- ✅ Confronta con baseline
-- ✅ Identifica failure cases
-
-### Debugging
-- ✅ Quando training non converge
-- ✅ Quando inferenza dà errori
-- ✅ Per visualizzare predizioni vs ground truth
-
-## Best Practices
-
-1. **Ordine esecuzione:** Dataset → YOLO → Pose (dipendenze)
-2. **Samples piccoli:** Usa pochi sample per test veloci (es. 10-50 immagini)
-3. **Visualizzazioni:** Plot sempre risultati per debugging visuale
-4. **Assertions:** Aggiungi `assert` per validare assunzioni
-5. **Cleanup:** Libera memoria GPU dopo test (`torch.cuda.empty_cache()`)
-
-## Uso
-
+### Esecuzione di un notebook (da terminale):
 ```bash
-# Avvia Jupyter Lab
-jupyter lab
-
-# Oppure singolo notebook
-jupyter notebook test/test_local_dataset.ipynb
-
-# Esegui tutti i test in sequenza (consigliato prima training)
-# 1. test_local_dataset.ipynb
-# 2. test_yolo.ipynb
-# 3. test_pose_estimation.ipynb
+jupyter notebook test7_baseline_vs_extension_comparison.ipynb
 ```
 
-## Note
+### Esempio di import e uso di modelli nei notebook:
+```python
+from models.pose_estimator_baseline import PoseEstimatorBaseline
+from models.yolo_detector import YOLODetector
+from utils.pinhole import compute_translation_pinhole
 
-- Test notebook devono essere veloci (< 5 min ciascuno)
-- Per test completi, usa `scripts/eval.py` (quando implementato)
-- I notebook testano componenti isolati, non end-to-end pipeline
-- Ideali per debugging e sviluppo iterativo
+# Carica modello
+model = PoseEstimatorBaseline(pretrained=True)
+# ...
+```
+
+### Esempio di visualizzazione risultati:
+```python
+import matplotlib.pyplot as plt
+plt.imshow(image)
+plt.title('Prediction vs Ground Truth')
+plt.show()
+```
+
+## 5. Note tecniche
+- **Pattern:**
+  - Ogni notebook è pensato come esperimento indipendente e documentato.
+  - Uso esteso di visualizzazioni (grafici, immagini, tabelle) per analisi qualitativa e quantitativa.
+  - Modularità: i notebook importano moduli dal progetto (models, utils, dataset) per evitare duplicazione di codice.
+- **Convenzioni:**
+  - I notebook seguono una numerazione progressiva e titoli descrittivi.
+  - Le pipeline sono suddivise in step chiari: setup, caricamento modelli, test, analisi risultati.
+- **Dettagli:**
+  - I notebook di confronto (es. test7) includono sia metriche aggregate che visualizzazioni per singola immagine.
+  - Le dipendenze sono coerenti con il resto del progetto e richiedono l'ambiente Python configurato.
+
+---
+
+Per dettagli su modelli e utility, vedi le cartelle `models/`, `utils/`, `dataset/` del progetto.

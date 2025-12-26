@@ -1,185 +1,180 @@
-# 6D Object Pose Estimation
+# 6D Pose Estimation on LineMOD
 
-End-to-end pipeline for 6D object pose estimation using RGB-D images. The project implements object detection and pose prediction techniques, progressively incorporating depth information to improve estimation accuracy.
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/) [![PyTorch](https://img.shields.io/badge/pytorch-1.10%2B-red.svg)](https://pytorch.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 🎯 Project Overview
+Stima della posa 6D di oggetti su dataset LineMOD tramite pipeline modulari: detection, stima rotazione/traslazione, training e valutazione modelli deep learning.
 
-This project focuses on 6D pose estimation, which determines both the **3D position** (translation vector) and **3D orientation** (rotation matrix) of objects in space. The pipeline combines:
+---
 
-- **Object Detection**: Localizing objects in RGB images using pretrained models (e.g., YOLO11)
-- **Pose Estimation**: Predicting 6D pose from detected regions using CNN-based architectures
-- **RGB-D Fusion**: Enhancing predictions by incorporating depth information
+## 📑 Indice
+- [Panoramica](#panoramica)
+- [Features](#features)
+- [Architettura](#architettura)
+- [Getting Started](#getting-started)
+- [Utilizzo](#utilizzo)
+- [Struttura del Progetto](#struttura-del-progetto)
+- [Documentazione](#documentazione)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contatti/Autori](#contattiautori)
 
-The implementation follows a modular structure with clear separation of concerns, enabling easy experimentation and extension.
+---
 
-## 📁 Project Structure
+## 🧐 Panoramica
+
+Questo progetto fornisce una pipeline completa per la stima della posa 6D di oggetti su LineMOD, combinando detection (YOLO), stima della rotazione (ResNet-50) e traslazione (modello pinhole o end-to-end). È pensato per:
+- Ricercatori e studenti in visione artificiale e robotica
+- Sviluppatori interessati a pipeline modulari per 6D pose
+- Chi vuole riprodurre, estendere o confrontare soluzioni su LineMOD
+
+**Problema risolto:** stima accurata di posizione e orientamento 3D di oggetti noti in immagini RGB, con pipeline facilmente adattabile e riproducibile.
+
+---
+
+## 🚀 Features
+- Pipeline modulari: baseline (YOLO + pinhole + ResNet) ed end-to-end (YOLO + ResNet)
+- Training e fine-tuning: YOLOv11, ResNet-50 (rotazione e traslazione)
+- Dataset handler: caricamento, parsing e split LineMOD, conversione in formato YOLO
+- Metriche e visualizzazione: ADD/ADD-S, grafici, overlay predizioni
+- Checkpoints e riproducibilità: salvataggio pesi, log, configurazioni YAML
+- Notebook di esempio: training, validazione, pipeline, confronto modelli
+- Configurazione centralizzata: parametri in `config.py`
+- Supporto GPU/CPU/MPS: auto-detect device
+
+---
+
+## 🏗️ Architettura
+
+Il progetto è suddiviso in moduli principali, ciascuno documentato da README specifici:
+
+- **config.py**: Configurazione centralizzata (path, hyperparametri, mapping oggetti)
+- **checkpoints/** ([README](checkpoints/README.md)): Checkpoint modelli, pesi, log, configurazioni
+- **data/** ([README](data/README.md)): Dataset LineMOD pre-processato, annotazioni, modelli 3D, symlink YOLO
+- **dataset/** ([README](dataset/README.md)): Loader, parser, conversioni e DataLoader per LineMOD
+- **models/** ([README](models/README.md)): Implementazioni YOLO, ResNet-50 baseline, end-to-end
+- **utils/** ([README](utils/README.md)): Utility per bbox, loss, metriche, pinhole, training, visualizzazione
+- **notebooks/** ([README](notebooks/readme.md)): Notebook Jupyter per training, pipeline, validazione, analisi
+- **experimental_notebooks/** ([README](experimental_notebooks/README.md)): Notebook di esplorazione e confronto
+
+---
+
+## ⚡ Getting Started
+
+### Prerequisiti
+- Python 3.8+
+- PyTorch 1.10+
+- Ultralytics YOLO (v11)
+- Altri: numpy, pandas, matplotlib, pyyaml, tqdm, PIL, opencv-python, gdown
+
+### Installazione
+1. **Clona il repository:**
+	```bash
+	git clone https://github.com/[user]/[repo].git
+	cd polito-aml-6D_pose_estimation
+	```
+2. **Crea un ambiente virtuale (opzionale ma consigliato):**
+	```bash
+	python -m venv .venv
+	source .venv/bin/activate
+	```
+3. **Installa le dipendenze:**
+	```bash
+	pip install -r requirements.txt
+	# oppure usa pyproject.toml/poetry se preferito
+	```
+4. **Scarica il dataset LineMOD pre-processato:**
+	```bash
+	python utils/download_dataset.py
+	# oppure segui le istruzioni in data/README.md
+	```
+
+### Configurazione
+- Tutti i path e parametri sono gestiti in `config.py`.
+- Modifica i parametri secondo le tue esigenze (es. device, batch size, learning rate).
+
+### Primo avvio
+- Esegui uno dei notebook in `notebooks/` per pipeline, training o validazione.
+- Oppure lancia uno script custom usando i moduli `models/`, `utils/`, `dataset/`.
+
+---
+
+## 🛠️ Utilizzo – Esempi pratici
+
+### Pipeline baseline (YOLO → Pinhole → ResNet)
+```python
+from models.yolo_detector import YOLODetector
+from models.pose_estimator_baseline import PoseEstimatorBaseline
+from utils.pinhole import compute_translation_pinhole
+
+yolo = YOLODetector(model_name='yolo11n.pt', num_classes=13)
+model = PoseEstimatorBaseline(pretrained=True)
+# ...carica batch, esegui detection, stima rotazione e traslazione...
+```
+
+### Fine-tuning YOLO
+```python
+from models.yolo_detector import YOLODetector
+detector = YOLODetector(model_name='yolo11n', pretrained=True, num_classes=13)
+detector.freeze_backbone(freeze_until_layer=10)
+results = detector.train(data_yaml='path/to/data.yaml', epochs=20)
+```
+
+### Training modello baseline (rotazione)
+```python
+from models.pose_estimator_baseline import PoseEstimatorBaseline
+model = PoseEstimatorBaseline(pretrained=True)
+# ...setup optimizer, loss, train loop...
+```
+
+Altri esempi dettagliati nei notebook in [notebooks/](notebooks/readme.md).
+
+---
+
+## 📂 Struttura del Progetto
 
 ```
 polito-aml-6D_pose_estimation/
-├── checkpoints/                  # 💾 MODEL CHECKPOINTS (created during training)
-│   ├── pretrained/               # Pretrained weights (yolo11n.pt, yolov8n.pt)
-│   ├── yolo/                     # YOLO fine-tuned models (organized structure)
-│   │   └── yolo_head_only/       # Training run folder (auto-organized after training)
-│   │       ├── plots/            # Training curves (F1, PR, confusion matrix)
-│   │       ├── training_samples/ # Sample training batches (JPG)
-│   │       ├── validation_samples/  # Sample validation batches (JPG)
-│   │       ├── weights/          # Model weights (best.pt, last.pt)
-│   │       ├── args.yaml         # Training configuration
-│   │       └── results.csv       # Per-epoch metrics
-│   ├── best_model.pth            # Best PoseEstimator model (gitignored)
-│   └── checkpoint_epoch_N.pth    # Periodic PoseEstimator checkpoints (gitignored)
-│
-├── data/                         # 📁 DATASET FILES (LineMOD subset - download separately)
-│   ├── .gitkeep
-│   └── Linemod_preprocessed/     # LineMOD dataset
-│       ├── data/                 # RGB-D images (01-15 objects)
-│       ├── models/               # 3D object models (.ply)
-│       └── yolo_symlinks/        # YOLO-format dataset (symlinks)
-│           ├── images/           # train/, val/ splits
-│           ├── labels/           # YOLO annotations
-│           └── data.yaml         # Dataset config
-│
-├── dataset/                      # 📦 DATASET MODULE
-│   ├── __init__.py               # Dataset exports
-│   ├── custom_dataset.py         # PyTorch Dataset for pose estimation
-│   └── linemod_yolo_dataset.py   # YOLO dataset preparation
-│
-├── models/                       # 🧠 MODELS MODULE
-│   ├── __init__.py               # Model exports
-│   ├── yolo_detector.py          # YOLO11-based object detection (freeze/train/validate)
-│   └── pose_estimator_endtoend.py         # 6D pose estimation (ResNet-50 + regression head)
-│
-├── notebooks/                    # 📓 JUPYTER NOTEBOOKS
-│   ├── colab_training.ipynb      # Google Colab training workflow
-│   └── Enhancing_6DPose_Estimation.ipynb  # Educational notebook
-│
-├── notebooks test/               # 🧪 TEST NOTEBOOKS
-│   ├── test_explore_dataset.ipynb       # Dataset exploration & statistics
-│   ├── test_yolo1_pretrained.ipynb      # YOLO pretrained detection baseline
-│   ├── test_yolo2_finetuning.ipynb      # YOLO fine-tuning & validation (mAP metrics)
-│   └── test_yolo3_pose_estimation.ipynb # Pose estimation testing & 3D visualization
-|
-|
-├── utils/                        # 🛠️ UTILITIES MODULE
-│   ├── __init__.py               # Utility exports
-│   ├── download_dataset.py       # Dataset downloader
-│   ├── transforms.py             # Pose transformations (quaternion, rotation, cropping)
-│   ├── losses.py                 # Loss functions (translation + rotation)
-│   ├── metrics.py                # Evaluation metrics (ADD, ADD-S)
-│   ├── bbox_utils.py             # Bounding box utilities
-│   ├── prepare_yolo_symlinks.py  # Create YOLO dataset with symlinks
-│   └── organize_yolo_results.py  # Auto-organize YOLO outputs into subdirectories
-│
-├── config.py                     # ⚙️ CONFIGURATION (hyperparameters, paths, M4 optimizations)
-├── requirements.txt              # 📋 PYTHON DEPENDENCIES (pip install -r requirements.txt)
-├── .gitignore                    # 🚫 GIT IGNORE (data/, checkpoints/*.pth, wandb/)
-│
+├── config.py
+├── checkpoints/         # [README](checkpoints/README.md)
+├── data/                # [README](data/README.md)
+├── dataset/             # [README](dataset/README.md)
+├── models/              # [README](models/README.md)
+├── utils/               # [README](utils/README.md)
+├── notebooks/           # [README](notebooks/readme.md)
+├── experimental_notebooks/ # [README](experimental_notebooks/README.md)
+├── requirements.txt
+├── pyproject.toml
 └── README.md
 ```
 
-## 🎯 Key Components
+---
 
-✅ **Modularity**: Code split into reusable modules (dataset, models, utils)
+## 📚 Documentazione
+- [checkpoints/README.md](checkpoints/README.md): Checkpoint, pesi, log
+- [data/README.md](data/README.md): Dataset LineMOD pre-processato
+- [dataset/README.md](dataset/README.md): Loader e parser dataset
+- [models/README.md](models/README.md): Modelli YOLO, ResNet-50, end-to-end
+- [utils/README.md](utils/README.md): Utility, metriche, pinhole, training
+- [notebooks/readme.md](notebooks/readme.md): Notebook pipeline, training, validazione
+- [experimental_notebooks/README.md](experimental_notebooks/README.md): Notebook di esplorazione e confronto
 
-✅ **CLI Interface**: Argparse for flexible script execution
+---
 
-✅ **Reproducibility**: requirements.txt + config.py for consistent experiments
+## 🤝 Contributing
 
-✅ **Checkpoint Management**: Automatic model saving
+Contributi, segnalazioni di bug e proposte di miglioramento sono benvenuti! Apri una issue o una pull request seguendo le best practice di GitHub.
 
-✅ **Logging**: Wandb integration for experiment tracking
+---
 
-✅ **Documentation**: Clear structure and documentation
+## 📝 License
 
-✅ **Git-friendly**: Proper .gitignore for large files
+Questo progetto è distribuito sotto licenza MIT. Vedi il file [LICENSE](LICENSE) per dettagli.
 
-## 🔍 Module Overview
+---
 
-**Dataset Module** (`dataset/`): Handles data loading for RGB-D images, bounding boxes, and 6D pose annotations. Includes `PoseDataset` class that loads LineMOD samples from official train/test splits, crops objects using bounding boxes, and converts rotation matrices to quaternions.
+## 👤 Contatti/Autori
 
-**Models Module** (`models/`):
+- [Tuo Nome] – [tuo.email@esempio.com]
+- [Altri autori/contributor]
 
-- `yolo_detector.py`: yolo-based object detection wrapper
-- `pose_estimator_endtoend.py`: 6D pose estimation using ResNet-50 backbone + regression head outputting quaternion (4D) + translation (3D)
-
-**Utils Module** (`utils/`):
-
-- `download_dataset.py`: Dataset downloader
-- `transforms.py`: Pose transformations (rotation matrix ↔ quaternion, bbox cropping, 3D point projection)
-- `losses.py`: Combined loss function (L1 smooth for translation + geodesic distance for rotation)
-- `metrics.py`: ADD and ADD-S metrics with 3D model loading
-
-**Notebooks** (`notebooks/`): Jupyter notebooks for Colab training and educational purposes
-
-**Test** (`test/`):
-
-- `test_yolo.ipynb`: Detection baseline testing with ground truth comparison
-- `test_pose_estimation.ipynb`: Pose prediction visualization with 3D bounding boxes, per-object ADD analysis
-
-**Config** (`config.py`): Centralized configuration including detection parameters (YOLO), pose estimation parameters (batch size, learning rate, loss weights), and object information (symmetric objects, ID-to-name mapping)
-
-## 🔄 Typical Workflow
-
-### 1. Initial Setup
-
-```bash
-git clone <repo-url>
-cd polito-aml-6D_pose_estimation
-pip install -r requirements.txt
-python utils/download_dataset.py
-```
-
-> **📝 Note on Checkpoints**: All models save in `checkpoints/`:
-> - YOLO models: `checkpoints/yolo/`
-> - Pose models: `checkpoints/*.pth`
-
-**Device Detection:**
-The system automatically detects the best available device (CUDA > MPS > CPU).
-Test your device with:
-
-```bash
-python test_device.py
-```
-
-On **Apple Silicon Mac** (M1/M2/M3), MPS (Metal Performance Shaders) will be automatically enabled for ~5-10x speedup vs CPU.
-
-### 2. Training (6D Pose Estimation)
-
-**Training Modes:**
-
-| Mode | Command | Time (Mac M1/M2) | Params Trained | Quality | Use Case |
-|------|---------|------------------|----------------|---------|----------|
-| **Quick Test** | `--freeze_backbone --epochs 2` | 2-3 min | ~3M (head only) | Basic | Fast prototyping |
-| **Medium** | `--epochs 5` | 10-15 min | ~26M (full) | Good | Quick experiments |
-| **Full** | `--epochs 50` | 2-4 hours | ~26M (full) | Best | Final model |
-
-**Key Training Features:**
-
-- **Gradient Accumulation**: Effective batch size = batch_size × gradient_accum_steps
-- **Mixed Precision (FP16)**: Faster training on Apple Silicon / CUDA GPUs
-- **Validation with ADD Metric**: Computed every 5 epochs using official test split
-- **Automatic Checkpointing**: Best model saved based on validation ADD
-- **Wandb Logging**: Track experiments with Weights & Biases
-
-### 3. Testing & Evaluation
-
-```bash
-# Test detection baseline
-jupyter notebook test/test_yolo.ipynb
-
-# Evaluate pose estimation on test set
-jupyter notebook test/test_pose_estimation.ipynb
-```
-
-**Evaluation Metrics:**
-
-- **ADD (Average Distance of Model Points)**: Mean distance between transformed 3D points
-- **ADD-S**: Symmetric variant for objects like eggbox (obj_08) and glue (obj_09)
-- **Accuracy**: Percentage of predictions with ADD < 10% of object diameter
-
-## 📢 Release Information
-
-**📅 Last update:** November 2025  
-**🏷️ Version:** v1.0.0
-
-*For details on changes and fixes, see the changelog in the repository.*
+Per domande, suggerimenti o collaborazioni, non esitare a contattarci!
