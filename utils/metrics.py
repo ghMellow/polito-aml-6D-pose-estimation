@@ -166,6 +166,12 @@ def compute_add_batch(
     if isinstance(gt_t_batch, torch.Tensor):
         gt_t_batch = gt_t_batch.cpu().numpy()
     
+    # 🔧 FIX: Ensure translations have shape (B, 3) not (B, 1, 3)
+    if pred_t_batch.ndim == 3 and pred_t_batch.shape[1] == 1:
+        pred_t_batch = pred_t_batch.squeeze(1)
+    if gt_t_batch.ndim == 3 and gt_t_batch.shape[1] == 1:
+        gt_t_batch = gt_t_batch.squeeze(1)
+    
     batch_size = len(obj_ids)
     
     # 🚀 OPTIMIZATION: Group samples by object ID for vectorization

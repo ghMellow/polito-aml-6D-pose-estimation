@@ -37,6 +37,7 @@ class LineMODPoseDataset(LineMODDatasetBase):
                 if isinstance(rgb_crop, np.ndarray):
                     rgb_crop = Image.fromarray(rgb_crop)
                 rgb_crop = self.transform(rgb_crop)
+            rgb = torch.from_numpy(img_array.transpose(2, 0, 1)).float() / 255.0  # [H,W,C] -> [C,H,W], normalizzato
             cam_K = np.array(info_objs['cam_K']).reshape(3, 3) if 'cam_K' in info_objs else None
             obj_id = obj.get('obj_id', None)
             # Percorsi depth/rgb centralizzati come in PosePinholeDataset
@@ -46,6 +47,7 @@ class LineMODPoseDataset(LineMODDatasetBase):
             rgb_path = base_path / 'rgb' / f"{sample_id:04d}.png"
             results.append({
                 'rgb_crop': rgb_crop,
+                'rgb': rgb,
                 'quaternion': torch.from_numpy(quaternion).float(),
                 'translation': torch.from_numpy(translation).float(),
                 'cam_K': torch.from_numpy(cam_K).float() if cam_K is not None else None,

@@ -79,3 +79,20 @@ def convert_bbox_to_yolo_format(
     h_norm = h / img_height
     
     return [x_center, y_center, w_norm, h_norm]
+
+def crop_bbox_optimized(img, bbox_xyxy, margin=0.15, output_size=(224, 224)):
+    """
+    Crop bbox da formato xyxy (YOLO output) con margin.
+    
+    Args:
+        img: numpy array BGR (da cv2.imread)
+        bbox_xyxy: [x1, y1, x2, y2]
+        margin: percentuale margine (default 0.15 = 15%)
+        output_size: tuple (width, height)
+    
+    Returns:
+        numpy array cropped e resized
+    """
+    x1, y1, x2, y2 = bbox_xyxy
+    bbox_xywh = [x1, y1, x2 - x1, y2 - y1]
+    return crop_and_pad(img, bbox_xywh, output_size, margin=margin)
