@@ -101,8 +101,6 @@ Questa cartella raccoglie tutte le utility condivise e i moduli di supporto per 
 ### `visualization.py`
 - **Cosa fa**: Utility per visualizzazione di training, metriche, sample, curve di loss e ADD.
 - **Funzioni principali**:
-	- `plot_training_curves`, `plot_training_validation_loss_from_csv` – Plot delle curve di training.
-	- `show_per_class_table`, `plot_add_per_class`, `plot_pinhole_error_per_class` – Visualizzazione metriche per classe.
 	- `show_pose_samples`, `show_pose_samples_with_add` – Visualizzazione immagini e predizioni.
 - **Dipendenze**: `matplotlib`, `pandas`, `torch`, `config.py`
 
@@ -132,12 +130,6 @@ history, best_loss, best_epoch = train_pose_baseline(model, train_loader, val_lo
 ```python
 from utils.metrics import compute_add_batch_rotation_only
 results = compute_add_batch_rotation_only(pred_R_batch, gt_R_batch, obj_ids, models_dict, models_info)
-```
-
-### Esempio: Visualizzazione
-```python
-from utils.visualization import plot_training_curves
-plot_training_curves(history)
 ```
 
 ## 5. Note Tecniche e Convenzioni
