@@ -58,7 +58,7 @@ class Config:
     CLASS_NAMES = [obj['name'] for obj in sorted(LINEMOD_OBJECTS.values(), key=lambda x: x['yolo_class'])]
     FOLDER_ID_TO_CLASS_ID = {fid: obj['yolo_class'] for fid, obj in LINEMOD_OBJECTS.items()}
     OBJ_ID_TO_NAME = {fid: obj['name'] for fid, obj in LINEMOD_OBJECTS.items()}
-    SYMMETRIC_OBJECTS = [obj['yolo_class'] for obj in LINEMOD_OBJECTS.values() if obj['symmetric']]
+    SYMMETRIC_OBJECTS = [10,11]  # eggbox (10) and glue (11)
     
     # ==================== YOLO Model ====================
     YOLO_MODEL = 'yolo11n'  # Options: yolo11n, yolo11s, yolo11m (11n is nano - smallest and fastest)
