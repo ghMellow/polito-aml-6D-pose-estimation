@@ -25,42 +25,55 @@ class LineMODPoseDataset(LineMODDatasetBase):
         img = self.load_image(folder_id, sample_id)
         gt_objs = self.load_gt(folder_id, sample_id)
         info_objs = self.load_info(folder_id, sample_id)
-        results = []
-        img_array = np.array(img)
+        
+        # Filtra solo l'oggetto che corrisponde al folder_id
+        # Nel dataset LineMOD, ogni cartella corrisponde a un oggetto specifico
+        target_obj = None
         for obj in gt_objs:
-            bbox = np.array(obj['obj_bb'])
-            rotation_matrix = np.array(obj['cam_R_m2c']).reshape(3, 3)
-            translation = np.array(obj['cam_t_m2c']) / 1000.0
-            quaternion = rotation_matrix_to_quaternion(rotation_matrix)
-            rgb_crop = crop_and_pad(img_array, bbox, self.output_size, margin=self.crop_margin)
-            if self.transform:
-                if isinstance(rgb_crop, np.ndarray):
-                    rgb_crop = Image.fromarray(rgb_crop)
-                rgb_crop = self.transform(rgb_crop)
-            rgb = torch.from_numpy(img_array.transpose(2, 0, 1)).float() / 255.0  # [H,W,C] -> [C,H,W], normalizzato
-            cam_K = np.array(info_objs['cam_K']).reshape(3, 3) if 'cam_K' in info_objs else None
-            obj_id = obj.get('obj_id', None)
-            # Percorsi depth/rgb centralizzati come in PosePinholeDataset
-            linemod_root = Path(Config.LINEMOD_ROOT)
-            base_path = linemod_root / 'data' / f"{folder_id:02d}"
-            depth_path = base_path / 'depth' / f"{sample_id:04d}.png"
-            rgb_path = base_path / 'rgb' / f"{sample_id:04d}.png"
-            results.append({
-                'rgb_crop': rgb_crop,
-                'rgb': rgb,
-                'quaternion': torch.from_numpy(quaternion).float(),
-                'translation': torch.from_numpy(translation).float(),
-                'cam_K': torch.from_numpy(cam_K).float() if cam_K is not None else None,
-                'bbox': torch.from_numpy(bbox).float(),
-                'folder_id': folder_id,
-                'sample_id': sample_id,
-                'obj_id': obj_id,
-                'depth_path': str(depth_path),
-                'rgb_path': str(rgb_path),
-                'info_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'info.yml')
-            })
-        # Se vuoi un solo oggetto per immagine, restituisci results[0]
-        return results[0] if results else None
+            if obj.get('obj_id') == folder_id:
+                target_obj = obj
+                break
+        
+        # Se non troviamo l'oggetto corrispondente, solleva un errore
+        if target_obj is None:
+            raise ValueError(f"No object with obj_id={folder_id} found in folder {folder_id:02d}, sample {sample_id:04d}")
+        
+        img_array = np.array(img)
+        bbox = np.array(target_obj['obj_bb'])
+        rotation_matrix = np.array(target_obj['cam_R_m2c']).reshape(3, 3)
+        translation = np.array(target_obj['cam_t_m2c']) / 1000.0
+        quaternion = rotation_matrix_to_quaternion(rotation_matrix)
+        rgb_crop = crop_and_pad(img_array, bbox, self.output_size, margin=self.crop_margin)
+        
+        if self.transform:
+            if isinstance(rgb_crop, np.ndarray):
+                rgb_crop = Image.fromarray(rgb_crop)
+            rgb_crop = self.transform(rgb_crop)
+        
+        rgb = torch.from_numpy(img_array.transpose(2, 0, 1)).float() / 255.0  # [H,W,C] -> [C,H,W], normalizzato
+        cam_K = np.array(info_objs['cam_K']).reshape(3, 3) if 'cam_K' in info_objs else None
+        obj_id = target_obj.get('obj_id', None)
+        
+        # Percorsi depth/rgb centralizzati come in PosePinholeDataset
+        linemod_root = Path(Config.LINEMOD_ROOT)
+        base_path = linemod_root / 'data' / f"{folder_id:02d}"
+        depth_path = base_path / 'depth' / f"{sample_id:04d}.png"
+        rgb_path = base_path / 'rgb' / f"{sample_id:04d}.png"
+        
+        return {
+            'rgb_crop': rgb_crop,
+            'rgb': rgb,
+            'quaternion': torch.from_numpy(quaternion).float(),
+            'translation': torch.from_numpy(translation).float(),
+            'cam_K': torch.from_numpy(cam_K).float() if cam_K is not None else None,
+            'bbox': torch.from_numpy(bbox).float(),
+            'folder_id': folder_id,
+            'sample_id': sample_id,
+            'obj_id': obj_id,
+            'depth_path': str(depth_path),
+            'rgb_path': str(rgb_path),
+            'info_path': str(self.dataset_root / 'data' / f'{folder_id:02d}' / 'info.yml')
+        }
 
 def create_pose_dataloaders(dataset_root, batch_size, crop_margin, output_size, num_workers=0, folder_to_class_mapping=None):
     """
