@@ -1,128 +1,35 @@
-"""
-Loss Functions for 6D Pose Estimation
-
-This module implements loss functions for training pose estimation models:
-- Translation loss (L1 smooth loss)
-- Rotation loss (geodesic distance on quaternions)
-- Combined pose loss
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import Config
-
-
 class PoseLoss(nn.Module):
-    """
-    Combined loss for 6D pose estimation.
-    
-    Combines:
-        - Translation loss: Smooth L1 loss
-        - Rotation loss: Geodesic distance on quaternions
-    
-    Args:
-        lambda_trans: Weight for translation loss (default: from Config.LAMBDA_TRANS)
-        lambda_rot: Weight for rotation loss (default: from Config.LAMBDA_ROT)
-    """
-    
-    def __init__(self, lambda_trans: float = None, lambda_rot: float = None):
-        super(PoseLoss, self).__init__()
-        
-        # Use Config defaults if not specified
+    def __init__(self, lambda_trans=None, lambda_rot=None):
+        super().__init__()
         self.lambda_trans = lambda_trans if lambda_trans is not None else Config.LAMBDA_TRANS
-        self.lambda_rot = lambda_rot if lambda_rot is not None else Config.LAMBDA_ROT
-        
-        print(f"✅ PoseLoss initialized")
-        print(f"   λ_trans: {lambda_trans}")
-        print(f"   λ_rot: {lambda_rot}")
-    
-    def translation_loss(self, pred_t: torch.Tensor, gt_t: torch.Tensor) -> torch.Tensor:
-        """
-        Compute translation loss using Smooth L1.
-        
-        Args:
-            pred_t: Predicted translation (B, 3)
-            gt_t: Ground truth translation (B, 3)
-            
-        Returns:
-            Translation loss (scalar)
-        """
-        return F.smooth_l1_loss(pred_t, gt_t)
-    
-    def rotation_loss(self, pred_q: torch.Tensor, gt_q: torch.Tensor) -> torch.Tensor:
-        """
-        Compute rotation loss using geodesic distance on quaternions.
-        
-        The geodesic distance is:
-            d = arccos(|q_pred · q_gt|)
-        
-        where the dot product gives the cosine of the angle between quaternions.
-        
-        Args:
-            pred_q: Predicted quaternion (B, 4), assumed normalized
-            gt_q: Ground truth quaternion (B, 4), assumed normalized
-            
-        Returns:
-            Rotation loss (scalar)
-        """
-        # Compute dot product (cosine of angle)
-        # Take absolute value to handle q and -q representing same rotation
-        dot_product = torch.abs(torch.sum(pred_q * gt_q, dim=1))
-        
-        # Clamp to avoid numerical issues with arccos
-        dot_product = torch.clamp(dot_product, -1.0, 1.0)
-        
-        # Geodesic distance
-        angle = torch.acos(dot_product)
-        
-        # Return mean angle
-        return torch.mean(angle)
-    
-    def forward(
-        self,
-        pred_q: torch.Tensor,
-        pred_t: torch.Tensor,
-        gt_q: torch.Tensor,
-        gt_t: torch.Tensor
-    ) -> dict:
-        """
-        Compute combined pose loss.
-        
-        Args:
-            pred_q: Predicted quaternion (B, 4)
-            pred_t: Predicted translation (B, 3)
-            gt_q: Ground truth quaternion (B, 4)
-            gt_t: Ground truth translation (B, 3)
-            
-        Returns:
-            Dictionary with 'total', 'trans', 'rot' losses
-        """
-        # Ensure tensors are contiguous to avoid view/stride issues
-        pred_t = pred_t.contiguous()
-        gt_t = gt_t.contiguous()
-        pred_q = pred_q.contiguous()
-        gt_q = gt_q.contiguous()
-        
-        # Compute individual losses
-        loss_trans = self.translation_loss(pred_t, gt_t)  # Now works in meters
-        
-        # ✅ Scale translation loss to maintain comparable magnitude with millimeters
-        # Dataset now provides translations in meters, so we scale loss by 1000
-        # to keep it in the same numerical range as before for stable training
-        loss_trans = loss_trans * 1000
-        
-        loss_rot = self.rotation_loss(pred_q, gt_q)
-        
-        # Combined loss
+        self.lambda_rot   = lambda_rot   if lambda_rot   is not None else Config.LAMBDA_ROT
+
+    def translation_loss(self, pred_t, gt_t):
+        # Work in mm so SmoothL1 beta has mm meaning
+        pred_mm = pred_t * 1000.0
+        gt_mm   = gt_t   * 1000.0
+        return F.smooth_l1_loss(pred_mm, gt_mm, beta=1.0)  # 1mm transition
+
+    def rotation_loss(self, pred_q, gt_q):
+        # Normalize BOTH (robust against small drift / dataset issues)
+        pred_q = F.normalize(pred_q, p=2, dim=1)
+        gt_q   = F.normalize(gt_q,   p=2, dim=1)
+
+        dot = torch.abs(torch.sum(pred_q * gt_q, dim=1))
+        dot = torch.clamp(dot, 0.0, 1.0)
+
+        angle = 2.0 * torch.acos(dot)  # true SO(3) angle in radians
+        return angle.mean()
+
+    def forward(self, pred_q, pred_t, gt_q, gt_t):
+        loss_trans = self.translation_loss(pred_t, gt_t)
+        loss_rot   = self.rotation_loss(pred_q, gt_q)
         loss_total = self.lambda_trans * loss_trans + self.lambda_rot * loss_rot
-        
-        return {
-            'total': loss_total,
-            'trans': loss_trans,
-            'rot': loss_rot
-        }
+        return {"total": loss_total, "trans": loss_trans, "rot": loss_rot}
 
 
 class PoseLossBaseline(nn.Module):

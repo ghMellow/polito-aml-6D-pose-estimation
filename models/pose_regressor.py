@@ -30,7 +30,7 @@ class PoseRegressor(nn.Module):
         dropout: Dropout probability (default: 0.3)
     """
     
-    def __init__(self, input_dim: int = 2304, dropout: float = 0.3):
+    def __init__(self, input_dim: int = 2304, dropout: float = 0.1):
         super(PoseRegressor, self).__init__()
         
         self.input_dim = input_dim
