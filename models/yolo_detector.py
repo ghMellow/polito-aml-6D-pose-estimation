@@ -86,7 +86,7 @@ class YOLODetector:
             
             # Modify detection head if using different number of classes
             if num_classes != 80:
-                print(f"⚠️  COCO pretrained weights have 80 classes, but you have {num_classes} classes")
+                print(f"⚠️  COCO pretrained weights have 80 classes, but Linemood have {num_classes} classes")
                 print(f"🔄 Modifying detection head...")
                 self._modify_detection_head(num_classes)
         else:

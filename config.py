@@ -71,7 +71,7 @@ class Config:
     YOLO_FREEZE_UNTIL_LAYER = 10  # Freeze layers 0-9 (backbone), train from 10 onwards (neck/head)
     
     # Training hyperparameters
-    YOLO_EPOCHS = 5  # Poche epoche per test veloce
+    YOLO_EPOCHS = 10  # Poche epoche per test veloce
     YOLO_BATCH_SIZE = 32 # Ridotto da 64 (se hai RAM limitata)
     YOLO_IMG_SIZE = 416
     YOLO_PATIENCE = 10  # Early stopping patience
@@ -143,32 +143,6 @@ class Config:
         return torch.cuda.is_available()
     
     @staticmethod
-    def get_cache_strategy():
-        """
-        🚀 OPTIMIZATION: Get adaptive cache strategy based on available RAM.
-        
-        Returns:
-            str: 'full' (cache all), 'partial' (LRU cache 50%), or 'none' (no image cache)
-        """
-        try:
-            import psutil
-            available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            strategy='none'
-            
-            if available_ram_gb >= 8.0:
-                strategy = 'full'  # ~1.5GB for full dataset
-            elif available_ram_gb >= 4.0:
-                strategy = 'partial'  # ~750MB for 50% most used
-            else:
-                strategy = 'none'  # Metadata only (~10MB)
-            
-            print(f"Cache Strategy: {strategy}")
-            return strategy
-        except ImportError:
-            print(f"ImportError cache strategy: {strategy}")
-            return 'none'
-    
-    @staticmethod
     def should_use_amp_yolo():
         """
         Determine if Automatic Mixed Precision (AMP) should be used for YOLO training.
@@ -188,7 +162,6 @@ class Config:
     # Adaptive device-specific helper optimizations
     GPU_PRESENT = should_use_gpu_add()
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
-    CACHE_STRATEGY = get_cache_strategy()  # Cache strategy: 'full', 'partial', or 'none'
     AMP_YOLO = should_use_amp_yolo()  # Automatic Mixed Precision for YOLO (CUDA only)
     
     # ==================== Device ====================
