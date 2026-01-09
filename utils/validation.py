@@ -21,14 +21,22 @@ def save_validation_results(results_rot_only, results_pinhole, checkpoint_dir):
     validation_results = []
     add_values = results_rot_only.get('add_values', None)
     is_correct = results_rot_only.get('is_correct', None)
+    add_values_6d = results_rot_only.get('add_values_6d', None)
+    is_correct_6d = results_rot_only.get('is_correct_6d', None)
     obj_ids_rot = results_rot_only.get('obj_ids', None)
     if add_values is not None and is_correct is not None and obj_ids_rot is not None:
         for i in range(len(add_values)):
-            validation_results.append({
+            row = {
                 'obj_id': obj_ids_rot[i],
                 'add_value': add_values[i],
                 'is_correct': is_correct[i]
-            })
+            }
+            # Aggiungi ADD 6D se disponibile
+            if add_values_6d is not None and i < len(add_values_6d):
+                row['add_value_6d'] = add_values_6d[i]
+            if is_correct_6d is not None and i < len(is_correct_6d):
+                row['is_correct_6d'] = is_correct_6d[i]
+            validation_results.append(row)
     if results_pinhole is not None:
         pinhole_errors = results_pinhole.get('pinhole_errors', None)
         pred_translations = results_pinhole.get('pred_translations', None)
@@ -67,7 +75,9 @@ def load_validation_results(val_csv_path):
     results_rot_only = {
         'obj_ids': df_val['obj_id'].values,
         'add_values': df_val['add_value'].values if 'add_value' in df_val else None,
-        'is_correct': df_val['is_correct'].values if 'is_correct' in df_val else None
+        'is_correct': df_val['is_correct'].values if 'is_correct' in df_val else None,
+        'add_values_6d': df_val['add_value_6d'].values if 'add_value_6d' in df_val else None,
+        'is_correct_6d': df_val['is_correct_6d'].values if 'is_correct_6d' in df_val else None
     }
     if 'pinhole_error' in df_val:
         results_pinhole = {
@@ -81,14 +91,32 @@ def load_validation_results(val_csv_path):
     return results_rot_only, results_pinhole
 
 
-def calc_add_accuracy_per_class(results_rot_only, linemod_objects):
+def calc_add_accuracy_per_class(results_rot_only, linemod_objects, use_6d=False):
     """
     Calcola media ADD e accuracy per classe e globale.
-    Restituisce una tabella e le metriche globali.
+    
+    Args:
+        results_rot_only: Dict con 'obj_ids', 'add_values', 'is_correct' (e opzionalmente 'add_values_6d', 'is_correct_6d')
+        linemod_objects: Dict con mapping obj_id -> nome oggetto
+        use_6d: Se True, usa ADD completa 6D invece di rot-only (default: False)
+    
+    Returns:
+        data: Lista di dict per DataFrame
+        global_add: Media globale ADD (mm)
+        global_acc: Accuracy globale (%)
     """
     obj_ids_rot = np.array(results_rot_only['obj_ids'])
-    add_values = np.array(results_rot_only['add_values'])
-    is_correct = np.array(results_rot_only['is_correct'])
+    
+    # Scegli quale ADD usare
+    if use_6d and 'add_values_6d' in results_rot_only and results_rot_only['add_values_6d'] is not None:
+        add_values = np.array(results_rot_only['add_values_6d'])
+        is_correct = np.array(results_rot_only['is_correct_6d'])
+        add_label = 'Media ADD (6D)'
+    else:
+        add_values = np.array(results_rot_only['add_values'])
+        is_correct = np.array(results_rot_only['is_correct'])
+        add_label = 'Media ADD (rot-only)'
+    
     data = []
     for obj_id, obj_name in linemod_objects.items():
         mask = obj_ids_rot == obj_id
@@ -98,7 +126,7 @@ def calc_add_accuracy_per_class(results_rot_only, linemod_objects):
         acc = is_correct[mask].mean() * 100
         data.append({
             'Classe': f"{obj_id:02d} - {obj_name.get('name')}",
-            'Media ADD (rot-only)': f"{mean_add:.2f}",
+            add_label: f"{mean_add:.2f}",
             'Accuracy (%)': f"{acc:.1f}"
         })
     global_add = add_values.mean()
@@ -125,6 +153,64 @@ def calc_pinhole_error_per_class(results_pinhole, linemod_objects):
         })
     global_pinhole = pinhole_errors.mean()
     return data, global_pinhole
+
+
+def calc_combined_results_per_class(results_rot_only, results_pinhole, linemod_objects):
+    """
+    Combina ADD completa (6D pose: rotation + translation) e pinhole error in un'unica tabella per classe.
+    
+    Args:
+        results_rot_only: Dict con 'obj_ids', 'add_values_6d', 'is_correct_6d' (ADD completa 6D)
+        results_pinhole: Dict con 'obj_ids', 'pinhole_errors'
+        linemod_objects: Dict con mapping obj_id -> nome oggetto
+    
+    Returns:
+        data: Lista di dict per DataFrame
+        global_add_6d: Media globale ADD 6D completa (mm)
+        global_acc_6d: Accuracy globale 6D (%)
+        global_pinhole: Errore medio globale pinhole (mm)
+    """
+    obj_ids_rot = np.array(results_rot_only['obj_ids'])
+    
+    # Usa ADD completa (6D) se disponibile, altrimenti fallback su ADD rot-only
+    if 'add_values_6d' in results_rot_only:
+        add_values = np.array(results_rot_only['add_values_6d'])
+        is_correct = np.array(results_rot_only['is_correct_6d'])
+        add_label = "ADD 6D (mm)"
+    else:
+        add_values = np.array(results_rot_only['add_values'])
+        is_correct = np.array(results_rot_only['is_correct'])
+        add_label = "ADD rot (mm)"
+    
+    obj_ids_pinhole = np.array(results_pinhole['obj_ids'])
+    pinhole_errors = np.array(results_pinhole['pinhole_errors'])
+    
+    data = []
+    for obj_id, obj_name in linemod_objects.items():
+        mask_rot = obj_ids_rot == obj_id
+        mask_pinhole = obj_ids_pinhole == obj_id
+        
+        if np.sum(mask_rot) == 0:
+            continue
+        
+        mean_add = add_values[mask_rot].mean()
+        acc = is_correct[mask_rot].mean() * 100
+        
+        # Pinhole error (potrebbe non essere disponibile per tutti)
+        mean_pinhole = pinhole_errors[mask_pinhole].mean() if np.sum(mask_pinhole) > 0 else 0.0
+        
+        data.append({
+            'Classe': f"{obj_id:02d} - {obj_name.get('name')}",
+            add_label: f"{mean_add:.2f}",
+            'Accuracy (%)': f"{acc:.1f}",
+            'Err. Pinhole (mm)': f"{mean_pinhole:.2f}"
+        })
+    
+    global_add = add_values.mean()
+    global_acc = is_correct.mean() * 100
+    global_pinhole = pinhole_errors.mean()
+    
+    return data, global_add, global_acc, global_pinhole
 
 
 # ============================================================================
@@ -169,11 +255,21 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
             
             # Calcolo translation con pinhole batch
             bboxes = batch['bbox'].cpu().numpy()
+            
+            # Converti bbox da [x, y, w, h] a [x1, y1, x2, y2] per pinhole
+            bboxes_xyxy = bboxes.copy()
+            bboxes_xyxy[:, 2] = bboxes[:, 0] + bboxes[:, 2]  # x2 = x1 + w
+            bboxes_xyxy[:, 3] = bboxes[:, 1] + bboxes[:, 3]  # y2 = y1 + h
+            
             depth_paths = batch['depth_path']
             camera_intrinsics = load_camera_intrinsics(
                 os.path.join(os.path.dirname(depth_paths[0]), '../gt.yml')
             )
-            pred_trans = compute_translation_pinhole_batch(bboxes, depth_paths, camera_intrinsics)
+            pred_trans = compute_translation_pinhole_batch(bboxes_xyxy, depth_paths, camera_intrinsics)
+            
+            # Converti da millimetri a metri per consistenza con GT
+            pred_trans = pred_trans / 1000.0
+            
             all_pred_translations.append(pred_trans)
             
             if 'translation' in batch:
@@ -189,21 +285,34 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
     pred_translations = np.concatenate(all_pred_translations, axis=0)
     gt_translations = np.concatenate(all_gt_translations, axis=0) if all_gt_translations else None
 
-    print("Calcolo metriche: ADD rot-only, traslazione pinhole")
+    print("Calcolo metriche: ADD rot-only, ADD completa (6D), traslazione pinhole")
+    
+    # 1. ADD solo rotazione (rotation + dummy translation)
     results_rot_only = compute_add_batch_rotation_only(
         pred_R, gt_R, obj_ids, models_dict, models_info
     )
     results_rot_only['obj_ids'] = obj_ids
 
+    # 2. Errore traslazione pinhole
     results_pinhole = None
     if gt_translations is not None:
-        pinhole_errors = np.linalg.norm(pred_translations - gt_translations, axis=1)
+        # Calcola errori in metri, poi converti in mm per visualizzazione
+        pinhole_errors_m = np.linalg.norm(pred_translations - gt_translations, axis=1)
+        pinhole_errors_mm = pinhole_errors_m * 1000.0
         results_pinhole = {
             'obj_ids': obj_ids,
-            'pinhole_errors': pinhole_errors,
-            'pred_translations': pred_translations,
-            'gt_translations': gt_translations
+            'pinhole_errors': pinhole_errors_mm,  # In millimetri
+            'pred_translations': pred_translations,  # In metri
+            'gt_translations': gt_translations  # In metri
         }
+        
+        # 3. ADD completa (6D pose: rotation predetta + translation pinhole)
+        results_full_6d = compute_add_batch_full_pose(
+            pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
+        )
+        # Aggiungi ADD completa ai risultati rot_only
+        results_rot_only['add_values_6d'] = results_full_6d['add_values']
+        results_rot_only['is_correct_6d'] = results_full_6d['is_correct']
     
     print("✅ Metriche calcolate.")
     save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
@@ -272,25 +381,34 @@ def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
 # ============================================================================
 # Full Pipeline Validation (YOLO + ResNet on full images)
 # ============================================================================
-
-def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_baseline_pipeline', max_samples=None):
+def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name, max_samples=None):
     """
     Valida la pipeline completa: YOLO detection → crop → ResNet baseline → Pinhole
     
     Args:
-        yolo_model: YoloDetector model per detection
-        pose_model: ResNet baseline model (predice solo rotation) - già caricato e in eval mode
-        image_loader: DataLoader con immagini full-size + GT annotations
+        yolo_model: YoloDetector model per detection (required)
+        pose_model: ResNet baseline model (predice solo rotation) - già caricato e in eval mode (required)
+        image_loader: DataLoader con immagini full-size + GT annotations (required)
         name: Nome del checkpoint (per salvare risultati)
         max_samples: Numero massimo di campioni da processare (None = tutti). Utile per debug rapido.
+    
+    Raises:
+        ValueError: Se yolo_model, pose_model o image_loader sono None
     """
+    # Validazione parametri obbligatori
+    if yolo_model is None:
+        raise ValueError("yolo_model non può essere None")
+    if pose_model is None:
+        raise ValueError("pose_model non può essere None")
+    if image_loader is None:
+        raise ValueError("image_loader non può essere None")
+    
     import cv2
     from torchvision import transforms
     from utils.bbox_utils import crop_bbox_optimized
     
     checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
     
-    # ✅ FIX: Non ricaricare il modello, è già stato caricato nel notebook
     pose_model.eval()
     print(f"✅ Usando modello {name} (già caricato)!")
     
@@ -335,7 +453,7 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_
                 pred_quaternion = pose_model(cropped_tensor)
                 all_pred_quaternions.append(pred_quaternion.cpu().squeeze(0))
                 all_gt_quaternions.append(gt_quaternion.cpu().squeeze(0))
-                all_obj_ids.append([obj_id])  # ✅ Mantieni come lista per concatenazione
+                all_obj_ids.append([obj_id])
 
                 # Pinhole translation
                 bbox_xywh = np.array([
@@ -345,25 +463,24 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_
                 camera_intrinsics = load_camera_intrinsics(
                     os.path.join(os.path.dirname(depth_path), '../gt.yml')
                 )
-                # ✅ FIX: compute_translation_pinhole_batch restituisce [1, 3], prendiamo [0]
                 pred_trans = compute_translation_pinhole_batch(
                     np.array([bbox_xywh]), [depth_path], camera_intrinsics
                 )
-                all_pred_translations.append(pred_trans[0])  # ✅ Shape [3] invece di squeeze
+                # Converti da millimetri a metri per consistenza con GT
+                pred_trans = pred_trans / 1000.0
+                all_pred_translations.append(pred_trans[0])
 
                 if gt_translation is not None:
                     all_gt_translations.append(gt_translation)
                 
                 samples_processed += 1
             
-            # ✅ Early exit if max_samples reached
             if max_samples is not None and samples_processed >= max_samples:
                 break
 
     print(f"📊 Campioni processati: {samples_processed}")
     print(f"⚠️  Detection failures: {detection_failures}")
 
-    # Check if we have any successful predictions
     if len(all_pred_quaternions) == 0:
         print("❌ No successful detections! All detections failed.")
         return None
@@ -375,29 +492,32 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_
     obj_ids = np.concatenate(all_obj_ids, axis=0)
     pred_R = quaternion_to_rotation_matrix_batch(pred_quaternions)
     gt_R = quaternion_to_rotation_matrix_batch(gt_quaternions)
-    # ✅ FIX: stack invece di concatenate per array 1D
     pred_translations = np.stack(all_pred_translations, axis=0)
     gt_translations = np.stack(all_gt_translations, axis=0) if all_gt_translations else None
 
-    print("Calcolo metriche: ADD rot-only, traslazione pinhole (YOLO pipeline)")
-    results_rot_only = compute_add_batch_rotation_only(
-        pred_R, gt_R, obj_ids, models_dict, models_info
-    )
-    results_rot_only['obj_ids'] = obj_ids
+    # Validazione parametri per compute_add_batch_full_pose
+    if gt_translations is None:
+        raise ValueError("gt_translations è None - impossibile calcolare ADD completa senza ground truth translation")
 
-    results_pinhole = None
-    if gt_translations is not None:
-        pinhole_errors = np.linalg.norm(pred_translations - gt_translations, axis=1)
-        results_pinhole = {
-            'obj_ids': obj_ids,
-            'pinhole_errors': pinhole_errors,
-            'pred_translations': pred_translations,
-            'gt_translations': gt_translations
-        }
+    print("Calcolo metriche: ADD completa 6D pose (rotation predetta + translation pinhole)")
+    results_full_pose = compute_add_batch_full_pose(
+        pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
+    )
+    results_full_pose['obj_ids'] = obj_ids
+
+    # Calcolo errore traslazione pinhole
+    pinhole_errors_m = np.linalg.norm(pred_translations - gt_translations, axis=1)
+    pinhole_errors_mm = pinhole_errors_m * 1000.0
+    results_pinhole = {
+        'obj_ids': obj_ids,
+        'pinhole_errors': pinhole_errors_mm,
+        'pred_translations': pred_translations,
+        'gt_translations': gt_translations
+    }
 
     print("✅ Metriche calcolate.")
-    save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
-
+    save_validation_results(results_full_pose, results_pinhole, checkpoint_dir)
+    print(f"✅ Risultati salvati in {checkpoint_dir / 'validation_result.csv'}")
 
 def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='yolo_endtoend_pipeline', max_samples=None):
     """

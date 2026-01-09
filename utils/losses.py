@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from config import Config
 
 class PoseLoss(nn.Module):
     def __init__(self, lambda_trans=None, lambda_rot=None):

@@ -200,7 +200,7 @@ class Config:
     POSE_DROPOUT = 0.5
     
     # Training parameters
-    POSE_EPOCHS = 50
+    POSE_EPOCHS = 30
     POSE_BATCH_SIZE = 64 
     ACCUMULATION_STEPS = 2
     POSE_LR = 1e-4
@@ -218,8 +218,8 @@ class Config:
     https://docs.google.com/presentation/d/1xjmM6H0pYA9ytBX5lY7b-0Y52PoIMx_w1T90tcxe6wI
     
     """
-    LAMBDA_TRANS = 5.0  # Translation loss weight (aumentato da 1.0 a 5.0 per bilanciare meglio)
-    LAMBDA_ROT = 50.0   # Rotation loss weight (10 -> 50)
+    LAMBDA_TRANS = 14.0  # Translation loss weight (aumentato da 1.0 a 5.0 per bilanciare meglio)
+    LAMBDA_ROT = 20.0   # Rotation loss weight (10 -> 50)
     
     # Evaluation
     ADD_THRESHOLD = 0.1  # 10% of object diameter
