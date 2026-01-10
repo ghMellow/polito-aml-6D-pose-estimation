@@ -115,7 +115,7 @@ def calc_add_accuracy_per_class(results_rot_only, linemod_objects, use_6d=False)
     else:
         add_values = np.array(results_rot_only['add_values'])
         is_correct = np.array(results_rot_only['is_correct'])
-        add_label = 'Media ADD (rot-only)'
+        add_label = 'Media ADD'
     
     data = []
     for obj_id, obj_name in linemod_objects.items():

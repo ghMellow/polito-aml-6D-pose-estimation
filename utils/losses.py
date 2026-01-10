@@ -57,32 +57,18 @@ class PoseLossBaseline(nn.Module):
     
     def rotation_loss(self, pred_q: torch.Tensor, gt_q: torch.Tensor) -> torch.Tensor:
         """
-        Compute rotation loss using geodesic distance on quaternions.
-        
-        The geodesic distance is:
-            d = arccos(|q_pred · q_gt|)
-        
-        where the dot product gives the cosine of the angle between quaternions.
-        
-        Args:
-            pred_q: Predicted quaternion (B, 4), assumed normalized
-            gt_q: Ground truth quaternion (B, 4), assumed normalized
-            
-        Returns:
-            Rotation loss (scalar)
+        Compute rotation loss using geodesic distance on quaternions, matching PoseLoss logic.
+        Normalizes both quaternions, clamps dot to [0,1], returns mean 2*acos(dot).
         """
-        # Compute dot product (cosine of angle)
-        # Take absolute value to handle q and -q representing same rotation
-        dot_product = torch.abs(torch.sum(pred_q * gt_q, dim=1))
-        
-        # Clamp to avoid numerical issues with arccos
-        dot_product = torch.clamp(dot_product, -1.0, 1.0)
-        
-        # Geodesic distance
-        angle = torch.acos(dot_product)
-        
-        # Return mean angle
-        return torch.mean(angle)
+        # Normalize BOTH (robust against small drift / dataset issues)
+        pred_q = F.normalize(pred_q, p=2, dim=1)
+        gt_q   = F.normalize(gt_q,   p=2, dim=1)
+
+        dot = torch.abs(torch.sum(pred_q * gt_q, dim=1))
+        dot = torch.clamp(dot, 0.0, 1.0)
+
+        angle = 2.0 * torch.acos(dot)  # true SO(3) angle in radians
+        return angle.mean()
     
     def forward(self, pred_q: torch.Tensor, gt_q: torch.Tensor) -> dict:
         """
