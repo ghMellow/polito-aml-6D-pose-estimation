@@ -7,145 +7,22 @@ from tqdm import tqdm
 from config import Config
 from utils.pinhole import load_camera_intrinsics, compute_translation_pinhole_batch
 from utils.transforms import quaternion_to_rotation_matrix_batch
-from utils.metrics import compute_add_batch_rotation_only, load_all_models, load_models_info, compute_add_batch_full_pose
+from utils.metrics import compute_add_batch_rotation_only, compute_add_batch_full_pose
+from utils.file_io import save_validation_results, load_all_models, load_models_info
 
 
-# ============================================================================
-# Load & Save
-# ============================================================================
-
-def save_validation_results(results_rot_only, results_pinhole, checkpoint_dir):
-    """
-    Salva i risultati di validazione in un file CSV.
-    """
-    validation_results = []
-    add_values = results_rot_only.get('add_values', None)
-    is_correct = results_rot_only.get('is_correct', None)
-    obj_ids_rot = results_rot_only.get('obj_ids', None)
-    if add_values is not None and is_correct is not None and obj_ids_rot is not None:
-        for i in range(len(add_values)):
-            validation_results.append({
-                'obj_id': obj_ids_rot[i],
-                'add_value': add_values[i],
-                'is_correct': is_correct[i]
-            })
-    if results_pinhole is not None:
-        pinhole_errors = results_pinhole.get('pinhole_errors', None)
-        pred_translations = results_pinhole.get('pred_translations', None)
-        gt_translations = results_pinhole.get('gt_translations', None)
-        obj_ids_pinhole = results_pinhole.get('obj_ids', None)
-        if pinhole_errors is not None and obj_ids_pinhole is not None:
-            for i in range(len(pinhole_errors)):
-                if i < len(validation_results):
-                    validation_results[i]['pinhole_error'] = pinhole_errors[i]
-                    if pred_translations is not None:
-                        validation_results[i]['pred_translation'] = pred_translations[i]
-                    if gt_translations is not None:
-                        validation_results[i]['gt_translation'] = gt_translations[i]
-                else:
-                    validation_results.append({
-                        'obj_id': obj_ids_pinhole[i],
-                        'pinhole_error': pinhole_errors[i],
-                        'pred_translation': pred_translations[i] if pred_translations is not None else None,
-                        'gt_translation': gt_translations[i] if gt_translations is not None else None
-                    })
-    if validation_results:
-        df_val = pd.DataFrame(validation_results)
-        if hasattr(checkpoint_dir, 'joinpath'):
-            val_csv_path = checkpoint_dir.joinpath('validation_result.csv')
-        else:
-            val_csv_path = os.path.join(str(checkpoint_dir), 'validation_result.csv')
-        df_val.to_csv(val_csv_path, index=False)
-        print(f"✅ Risultati di validazione salvati in {val_csv_path}")
-
-
-def load_validation_results(val_csv_path):
-    """
-    Carica i risultati di validazione dal CSV e restituisce i dizionari results_rot_only e results_pinhole.
-    """
-    df_val = pd.read_csv(val_csv_path)
-    results_rot_only = {
-        'obj_ids': df_val['obj_id'].values,
-        'add_values': df_val['add_value'].values if 'add_value' in df_val else None,
-        'is_correct': df_val['is_correct'].values if 'is_correct' in df_val else None
-    }
-    if 'pinhole_error' in df_val:
-        results_pinhole = {
-            'obj_ids': df_val['obj_id'].values,
-            'pinhole_errors': df_val['pinhole_error'].values,
-            'pred_translations': df_val['pred_translation'].values if 'pred_translation' in df_val else None,
-            'gt_translations': df_val['gt_translation'].values if 'gt_translation' in df_val else None
-        }
-    else:
-        results_pinhole = None
-    return results_rot_only, results_pinhole
-
-
-def calc_add_accuracy_per_class(results_rot_only, linemod_objects):
-    """
-    Calcola media ADD e accuracy per classe e globale.
-    Restituisce una tabella e le metriche globali.
-    """
-    obj_ids_rot = np.array(results_rot_only['obj_ids'])
-    add_values = np.array(results_rot_only['add_values'])
-    is_correct = np.array(results_rot_only['is_correct'])
-    data = []
-    for obj_id, obj_name in linemod_objects.items():
-        mask = obj_ids_rot == obj_id
-        if np.sum(mask) == 0:
-            continue
-        mean_add = add_values[mask].mean()
-        acc = is_correct[mask].mean() * 100
-        data.append({
-            'Classe': f"{obj_id:02d} - {obj_name.get('name')}",
-            'Media ADD (rot-only)': f"{mean_add:.2f}",
-            'Accuracy (%)': f"{acc:.1f}"
-        })
-    global_add = add_values.mean()
-    global_acc = is_correct.mean() * 100
-    return data, global_add, global_acc
-
-
-def calc_pinhole_error_per_class(results_pinhole, linemod_objects):
-    """
-    Calcola errore medio pinhole per classe e globale.
-    Restituisce una tabella e la metrica globale.
-    """
-    obj_ids_pinhole = np.array(results_pinhole['obj_ids'])
-    pinhole_errors = np.array(results_pinhole['pinhole_errors'])
-    data = []
-    for obj_id, obj_name in linemod_objects.items():
-        mask = obj_ids_pinhole == obj_id
-        if np.sum(mask) == 0:
-            continue
-        mean_pinhole = pinhole_errors[mask].mean()
-        data.append({
-            'Classe': f"{obj_id:02d} - {obj_name.get('name')}",
-            'Err. Pinhole medio (mm)': f"{mean_pinhole:.2f}"
-        })
-    global_pinhole = pinhole_errors.mean()
-    return data, global_pinhole
-
-
-# ============================================================================
 # GT Crops Validation (ResNet models on pre-cropped images)
-# ============================================================================
 
 def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
     """
-    Valida il modello baseline (rotation-only) su GT crops.
+    Validates baseline model on GT crops using pinhole projection for translation.
     Pipeline: GT crops → ResNet (rotation) → Pinhole (translation)
-    
-    Args:
-        model: ResNet baseline model (predice solo rotation)
-        test_loader: DataLoader con GT crops (LineMODPoseDataset)
-        name: Nome del checkpoint
     """
     checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
     checkpoint_path = checkpoint_dir / "weights" / "best.pt"
     model.load_state_dict(torch.load(checkpoint_path, map_location=Config.DEVICE))
     model.eval()
-    print(f"✅ Modello {name} caricato!")
+    print(f"Model {name} loaded")
     
     models_dict = load_all_models()
     models_info = load_models_info(Config.MODELS_INFO_PATH)
@@ -167,20 +44,23 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
             all_gt_quaternions.append(gt_quaternions.cpu())
             all_obj_ids.append(obj_ids)
             
-            # Calcolo translation con pinhole batch
             bboxes = batch['bbox'].cpu().numpy()
+            bboxes_xyxy = bboxes.copy()
+            bboxes_xyxy[:, 2] = bboxes[:, 0] + bboxes[:, 2]
+            bboxes_xyxy[:, 3] = bboxes[:, 1] + bboxes[:, 3]
+            
             depth_paths = batch['depth_path']
             camera_intrinsics = load_camera_intrinsics(
                 os.path.join(os.path.dirname(depth_paths[0]), '../gt.yml')
             )
-            pred_trans = compute_translation_pinhole_batch(bboxes, depth_paths, camera_intrinsics)
+            pred_trans = compute_translation_pinhole_batch(bboxes_xyxy, depth_paths, camera_intrinsics)
+            pred_trans = pred_trans / 1000.0
             all_pred_translations.append(pred_trans)
             
             if 'translation' in batch:
                 all_gt_translations.append(batch['translation'].cpu().numpy())
 
-    # Concatenazione
-    print("Concatenazione batch...")
+    print("Concatenating batches...")
     pred_quaternions = torch.cat(all_pred_quaternions, dim=0)
     gt_quaternions = torch.cat(all_gt_quaternions, dim=0)
     obj_ids = np.concatenate(all_obj_ids, axis=0)
@@ -189,7 +69,8 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
     pred_translations = np.concatenate(all_pred_translations, axis=0)
     gt_translations = np.concatenate(all_gt_translations, axis=0) if all_gt_translations else None
 
-    print("Calcolo metriche: ADD rot-only, traslazione pinhole")
+    print("Computing metrics: rotation-only ADD, full 6D ADD, pinhole translation error")
+    
     results_rot_only = compute_add_batch_rotation_only(
         pred_R, gt_R, obj_ids, models_dict, models_info
     )
@@ -197,33 +78,34 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
 
     results_pinhole = None
     if gt_translations is not None:
-        pinhole_errors = np.linalg.norm(pred_translations - gt_translations, axis=1)
+        pinhole_errors_m = np.linalg.norm(pred_translations - gt_translations, axis=1)
+        pinhole_errors_mm = pinhole_errors_m * 1000.0
         results_pinhole = {
             'obj_ids': obj_ids,
-            'pinhole_errors': pinhole_errors,
+            'pinhole_errors': pinhole_errors_mm,
             'pred_translations': pred_translations,
             'gt_translations': gt_translations
         }
+        
+        results_full_6d = compute_add_batch_full_pose(
+            pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
+        )
+        results_rot_only['add_values_6d'] = results_full_6d['add_values']
+        results_rot_only['is_correct_6d'] = results_full_6d['is_correct']
     
-    print("✅ Metriche calcolate.")
+    print("Metrics computed")
     save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
-
 
 def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
     """
-    Valida il modello end-to-end (rotation+translation) su GT crops.
+    Validates end-to-end model on GT crops.
     Pipeline: GT crops → ResNet (rotation + translation)
-    
-    Args:
-        model: ResNet end-to-end model (predice rotation + translation)
-        test_loader: DataLoader con GT crops (LineMODPoseDataset)
-        name: Nome del checkpoint
     """
     checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
     checkpoint_path = checkpoint_dir / "weights" / "best.pt"
     model.load_state_dict(torch.load(checkpoint_path, map_location=Config.DEVICE))
     model.eval()
-    print(f"✅ Modello {name} caricato!")
+    print(f"Model {name} loaded")
 
     models_dict = load_all_models()
     models_info = load_models_info(Config.MODELS_INFO_PATH)
@@ -249,8 +131,7 @@ def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
             if 'translation' in batch:
                 all_gt_translations.append(batch['translation'].cpu().numpy())
 
-    # Concatenazione
-    print("Concatenazione batch...")
+    print("Concatenating batches...")
     pred_quaternions = torch.cat(all_pred_quaternions, dim=0)
     gt_quaternions = torch.cat(all_gt_quaternions, dim=0)
     obj_ids = np.concatenate(all_obj_ids, axis=0)
@@ -259,40 +140,39 @@ def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
     pred_translations = np.concatenate(all_pred_translations, axis=0)
     gt_translations = np.concatenate(all_gt_translations, axis=0) if all_gt_translations else None
 
-    print("Calcolo metriche: ADD full pose (end-to-end)")
+    print("Computing full pose ADD metrics")
     results_full_pose = compute_add_batch_full_pose(
         pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
     )
     results_full_pose['obj_ids'] = obj_ids
 
     save_validation_results(results_full_pose, None, checkpoint_dir)
-    print(f"✅ Risultati salvati in {checkpoint_dir / 'validation_result.csv'}")
+    print(f"Results saved to {checkpoint_dir / 'validation_result.csv'}")
 
 
-# ============================================================================
 # Full Pipeline Validation (YOLO + ResNet on full images)
-# ============================================================================
 
-def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_baseline_pipeline', max_samples=None):
+def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name, max_samples=None):
     """
-    Valida la pipeline completa: YOLO detection → crop → ResNet baseline → Pinhole
+    Validates full pipeline: YOLO detection → crop → ResNet baseline → Pinhole.
     
     Args:
-        yolo_model: YoloDetector model per detection
-        pose_model: ResNet baseline model (predice solo rotation) - già caricato e in eval mode
-        image_loader: DataLoader con immagini full-size + GT annotations
-        name: Nome del checkpoint (per salvare risultati)
-        max_samples: Numero massimo di campioni da processare (None = tutti). Utile per debug rapido.
+        yolo_model: YOLO detector model
+        pose_model: ResNet baseline model (rotation only), already loaded in eval mode
+        image_loader: DataLoader with full-size images and GT annotations
+        name: Checkpoint name for saving results
+        max_samples: Maximum number of samples to process (None for all)
     """
+    if not all([yolo_model, pose_model, image_loader]):
+        raise ValueError("yolo_model, pose_model, and image_loader are required")
+    
     import cv2
     from torchvision import transforms
     from utils.bbox_utils import crop_bbox_optimized
     
     checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
-    
-    # ✅ FIX: Non ricaricare il modello, è già stato caricato nel notebook
     pose_model.eval()
-    print(f"✅ Usando modello {name} (già caricato)!")
+    print(f"Using model {name}")
     
     models_dict = load_all_models()
     models_info = load_models_info(Config.MODELS_INFO_PATH)
@@ -335,7 +215,7 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_
                 pred_quaternion = pose_model(cropped_tensor)
                 all_pred_quaternions.append(pred_quaternion.cpu().squeeze(0))
                 all_gt_quaternions.append(gt_quaternion.cpu().squeeze(0))
-                all_obj_ids.append([obj_id])  # ✅ Mantieni come lista per concatenazione
+                all_obj_ids.append([obj_id])
 
                 # Pinhole translation
                 bbox_xywh = np.array([
@@ -345,80 +225,78 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='yolo_
                 camera_intrinsics = load_camera_intrinsics(
                     os.path.join(os.path.dirname(depth_path), '../gt.yml')
                 )
-                # ✅ FIX: compute_translation_pinhole_batch restituisce [1, 3], prendiamo [0]
                 pred_trans = compute_translation_pinhole_batch(
                     np.array([bbox_xywh]), [depth_path], camera_intrinsics
                 )
-                all_pred_translations.append(pred_trans[0])  # ✅ Shape [3] invece di squeeze
+                # Converti da millimetri a metri per consistenza con GT
+                pred_trans = pred_trans / 1000.0
+                all_pred_translations.append(pred_trans[0])
 
                 if gt_translation is not None:
                     all_gt_translations.append(gt_translation)
                 
                 samples_processed += 1
             
-            # ✅ Early exit if max_samples reached
             if max_samples is not None and samples_processed >= max_samples:
                 break
 
-    print(f"📊 Campioni processati: {samples_processed}")
-    print(f"⚠️  Detection failures: {detection_failures}")
+    print(f"Samples processed: {samples_processed}")
+    print(f"Detection failures: {detection_failures}")
 
-    # Check if we have any successful predictions
     if len(all_pred_quaternions) == 0:
-        print("❌ No successful detections! All detections failed.")
+        print("No successful detections")
         return None
 
-    # Concatenazione
-    print("Concatenazione batch...")
+    print("Concatenating batches...")
     pred_quaternions = torch.stack(all_pred_quaternions, dim=0)
     gt_quaternions = torch.stack(all_gt_quaternions, dim=0)
     obj_ids = np.concatenate(all_obj_ids, axis=0)
     pred_R = quaternion_to_rotation_matrix_batch(pred_quaternions)
     gt_R = quaternion_to_rotation_matrix_batch(gt_quaternions)
-    # ✅ FIX: stack invece di concatenate per array 1D
     pred_translations = np.stack(all_pred_translations, axis=0)
     gt_translations = np.stack(all_gt_translations, axis=0) if all_gt_translations else None
 
-    print("Calcolo metriche: ADD rot-only, traslazione pinhole (YOLO pipeline)")
-    results_rot_only = compute_add_batch_rotation_only(
-        pred_R, gt_R, obj_ids, models_dict, models_info
+    if gt_translations is None:
+        raise ValueError("Ground truth translations required for full 6D pose evaluation")
+
+    print("Computing full 6D pose ADD metrics")
+    results_full_pose = compute_add_batch_full_pose(
+        pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
     )
-    results_rot_only['obj_ids'] = obj_ids
+    results_full_pose['obj_ids'] = obj_ids
 
-    results_pinhole = None
-    if gt_translations is not None:
-        pinhole_errors = np.linalg.norm(pred_translations - gt_translations, axis=1)
-        results_pinhole = {
-            'obj_ids': obj_ids,
-            'pinhole_errors': pinhole_errors,
-            'pred_translations': pred_translations,
-            'gt_translations': gt_translations
-        }
+    # Calcolo errore traslazione pinhole
+    pinhole_errors_m = np.linalg.norm(pred_translations - gt_translations, axis=1)
+    pinhole_errors_mm = pinhole_errors_m * 1000.0
+    results_pinhole = {
+        'obj_ids': obj_ids,
+        'pinhole_errors': pinhole_errors_mm,
+        'pred_translations': pred_translations,
+        'gt_translations': gt_translations
+    }
 
-    print("✅ Metriche calcolate.")
-    save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
-
+    print("Metrics computed")
+    save_validation_results(results_full_pose, results_pinhole, checkpoint_dir)
+    print(f"Results saved to {checkpoint_dir / 'validation_result.csv'}")
 
 def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='yolo_endtoend_pipeline', max_samples=None):
     """
-    Valida la pipeline completa: YOLO detection → crop → ResNet end-to-end
+    Validates full pipeline: YOLO detection → crop → ResNet end-to-end.
     
     Args:
-        yolo_model: YoloDetector model per detection
-        pose_model: ResNet end-to-end model (predice rotation + translation) - già caricato e in eval mode
-        image_loader: DataLoader con immagini full-size + GT annotations
-        name: Nome del checkpoint (per salvare risultati)
-        max_samples: Numero massimo di campioni da processare (None = tutti). Utile per debug rapido.
+        yolo_model: YOLO detector model
+        pose_model: ResNet end-to-end model (rotation + translation), already loaded in eval mode
+        image_loader: DataLoader with full-size images and GT annotations
+        name: Checkpoint name for saving results
+        max_samples: Maximum number of samples to process (None for all)
     """
     import cv2
     from torchvision import transforms
     from utils.bbox_utils import crop_bbox_optimized
     
     checkpoint_dir = Config.CHECKPOINT_DIR / "pose" / name
-
-    # ✅ FIX: Non ricaricare il modello, è già stato caricato nel notebook
     pose_model.eval()
-    print(f"✅ Usando modello {name} (già caricato)!")
+    print(f"Using model {name}")
     
     models_dict = load_all_models()
     models_info = load_models_info(Config.MODELS_INFO_PATH)
@@ -437,9 +315,9 @@ def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='yolo_
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    desc = f"Validazione YOLO pipeline (end-to-end{f', max {max_samples} samples' if max_samples else ''})"
+    desc = f"Validating YOLO pipeline (end-to-end{f', max {max_samples} samples' if max_samples else ''})"
     with torch.no_grad():
-        for batch in tqdm(image_loader, desc="Validazione YOLO pipeline (end-to-end)"):
+        for batch in tqdm(image_loader, desc=desc):
             for i in range(len(batch['rgb_path'])):
                 rgb_path = batch['rgb_path'][i]
                 gt_quaternion = batch['quaternion'][i].unsqueeze(0).to(Config.DEVICE)
@@ -461,43 +339,35 @@ def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='yolo_
                 all_pred_quaternions.append(pred_quaternion.cpu().squeeze(0))
                 all_gt_quaternions.append(gt_quaternion.cpu().squeeze(0))
                 all_obj_ids.append([obj_id])
-                # ✅ FIX: Mantieni shape 2D per translations (1, 3) → squeeze solo batch
-                all_pred_translations.append(pred_translation.cpu().numpy())  # Shape (1, 3)
+                all_pred_translations.append(pred_translation.cpu().numpy())
                 
                 if gt_translation is not None:
                     all_gt_translations.append(gt_translation)
                 
                 samples_processed += 1
             
-            # ✅ Early exit if max_samples reached
             if max_samples is not None and samples_processed >= max_samples:
                 break
 
-    print(f"📊 Campioni processati: {samples_processed}")
-    print(f"⚠️  Detection failures: {detection_failures}")
+    print(f"Samples processed: {samples_processed}")
+    print(f"Detection failures: {detection_failures}")
 
-    # Check if we have any successful predictions
     if len(all_pred_quaternions) == 0:
-        print("❌ No successful detections! All detections failed.")
+        print("No successful detections")
         return None
-
-    # ✅ FIX: stack invece di concatenate per array 1D
-    pred_translations = np.stack(all_pred_translations, axis=0)
-    gt_translations = np.stack
     pred_quaternions = torch.stack(all_pred_quaternions, dim=0)
     gt_quaternions = torch.stack(all_gt_quaternions, dim=0)
     obj_ids = np.concatenate(all_obj_ids, axis=0)
     pred_R = quaternion_to_rotation_matrix_batch(pred_quaternions)
     gt_R = quaternion_to_rotation_matrix_batch(gt_quaternions)
-    # ✅ FIX: stack invece di concatenate per array 1D
     pred_translations = np.stack(all_pred_translations, axis=0)
     gt_translations = np.stack(all_gt_translations, axis=0) if all_gt_translations else None
     
-    print("Calcolo metriche: ADD full pose (YOLO pipeline end-to-end)")
+    print("Computing full pose ADD metrics")
     results_full_pose = compute_add_batch_full_pose(
         pred_R, pred_translations, gt_R, gt_translations, obj_ids, models_dict, models_info
     )
     results_full_pose['obj_ids'] = obj_ids
 
     save_validation_results(results_full_pose, None, checkpoint_dir)
-    print(f"✅ Risultati salvati in {checkpoint_dir / 'validation_result.csv'}")
+    print(f"Results saved to {checkpoint_dir / 'validation_result.csv'}")

@@ -96,13 +96,10 @@ class Config:
     # ==================== Adaptive Helpers ====================
     @staticmethod
     def should_use_gpu_add():
-        """
-        Decide se usare la versione GPU per la metrica ADD.
-        Usa la GPU solo se torch.cuda.is_available().
-        """
+        """Detect if CUDA GPU is available (optimized operations for CUDA only, not MPS)."""
         try:
             import torch
-            return torch.cuda.is_available()
+            return torch.cuda.is_available()  # Only True for CUDA, not MPS
         except ImportError:
             return False
         
