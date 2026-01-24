@@ -162,6 +162,9 @@ def prepare_yolo_dataset_symlinks(dataset_root, output_root, use_symlinks=True):
     elapsed_time = time.time() - start_time
     stats['time_seconds'] = elapsed_time
     
+    if stats['clipped'] > 0:
+        print(f"Warning: {stats['clipped']} bounding boxes were clipped to [0, 1] range")
+    
     return stats
 
 
