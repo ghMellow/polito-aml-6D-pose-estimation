@@ -130,6 +130,12 @@ def prepare_yolo_dataset_symlinks(dataset_root, output_root, use_symlinks=True):
 
                     with open(label_path, 'w') as label_file:
                         for obj in obj_list:
+                            # CRITICAL FIX: Filter only objects matching current folder_id
+                            # LineMOD gt.yml can contain multiple objects from different classes
+                            # We only want bboxes for the object corresponding to this folder
+                            if obj.get('obj_id') != folder_id:
+                                continue
+                            
                             bbox = obj['obj_bb']  # [x, y, w, h]
                             # Convert to YOLO format
                             x_c, y_c, w_n, h_n = convert_bbox_to_yolo_format(
