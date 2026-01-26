@@ -133,6 +133,17 @@ class Config:
         return numworkers
     
     @staticmethod
+    def get_add_parallel_jobs():
+        """
+        Get the number of parallel jobs for ADD metric computation.
+        """
+        try:
+            import multiprocessing
+            return max(1, multiprocessing.cpu_count() // 2)
+        except Exception:
+            return 1
+    
+    @staticmethod
     def should_pin_memory():
         """Determine if pin_memory should be used for DataLoader."""
         import torch
@@ -160,6 +171,7 @@ class Config:
     GPU_PRESENT = should_use_gpu_add()
     PIN_MEMORY = should_pin_memory()  # pin_memory for DataLoader
     AMP_YOLO = should_use_amp_yolo()  # Automatic Mixed Precision for YOLO (CUDA only)
+    PARALLEL_JOBS = get_add_parallel_jobs()
     
     # ==================== Device ====================
     # Auto-detect best available device: CUDA > MPS (Apple Silicon) > CPU
@@ -215,8 +227,8 @@ class Config:
     https://docs.google.com/presentation/d/1xjmM6H0pYA9ytBX5lY7b-0Y52PoIMx_w1T90tcxe6wI
     
     """
-    LAMBDA_TRANS = 8.0  # Translation loss weight (aumentato da 1.0 a 5.0 per bilanciare meglio)
-    LAMBDA_ROT = 20.0   # Rotation loss weight (10 -> 50)
+    LAMBDA_TRANS = 10.0  # Translation loss weight (aumentato da 1.0 a 5.0 per bilanciare meglio)
+    LAMBDA_ROT = 5.0   # Rotation loss weight (10 -> 50)
     
     # Evaluation
     ADD_THRESHOLD = 0.1  # 10% of object diameter

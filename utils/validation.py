@@ -13,7 +13,7 @@ from utils.file_io import save_validation_results, load_all_models, load_models_
 
 # GT Crops Validation (ResNet models on pre-cropped images)
 
-def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
+def run_pinhole_deep_pipeline(model, test_loader, name='pose_rgb_baseline'):
     """
     Validates baseline model on GT crops using pinhole projection for translation.
     Pipeline: GT crops → ResNet (rotation) → Pinhole (translation)
@@ -96,7 +96,7 @@ def run_pinhole_deep_pipeline(model, test_loader, name='test_rotationonly_1'):
     print("Metrics computed")
     save_validation_results(results_rot_only, results_pinhole, checkpoint_dir)
 
-def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
+def run_deep_pose_pipeline(model, test_loader, name="pose_rgb_endtoend"):
     """
     Validates end-to-end model on GT crops.
     Pipeline: GT crops → ResNet (rotation + translation)
@@ -152,7 +152,7 @@ def run_deep_pose_pipeline(model, test_loader, name="test_endtoend_pose_1"):
 
 # Full Pipeline Validation (YOLO + ResNet on full images)
 
-def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name, max_samples=None):
+def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name='pose_rgb_baseline', max_samples=None):
     """
     Validates full pipeline: YOLO detection → crop → ResNet baseline → Pinhole.
     
@@ -194,49 +194,70 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name, max_s
     desc = f"Validazione YOLO pipeline (baseline{f', max {max_samples} samples' if max_samples else ''})"
     with torch.no_grad():
         for batch in tqdm(image_loader, desc=desc):
-            for i in range(len(batch['rgb_path'])):
-                rgb_path = batch['rgb_path'][i]
-                depth_path = batch['depth_path'][i]
-                gt_quaternion = batch['quaternion'][i].unsqueeze(0).to(Config.DEVICE)
-                gt_translation = batch['translation'][i].numpy() if 'translation' in batch else None
-                obj_id = batch['obj_id'][i].item()
-                
-                image_BGR = cv2.imread(rgb_path)
-                
-                detections = yolo_model.detect_objects(image_BGR, conf_threshold=0.3)
+            rgb_paths = batch['rgb_path']
+            depth_paths = batch['depth_path']
+            gt_quaternions = batch['quaternion']
+            obj_ids = batch['obj_id']
+            gt_translations = batch['translation'] if 'translation' in batch else None
+
+            images_BGR = [cv2.imread(p) for p in rgb_paths]
+            # Batch YOLO detection
+            detections_batch = yolo_model.detect_objects_batch(images_BGR, conf_threshold=0.3)
+
+            crop_tensors = []
+            valid_indices = []
+            crop_gt_quaternions = []
+            crop_obj_ids = []
+            crop_depth_paths = []
+            crop_gt_translations = []
+
+            for i, detections in enumerate(detections_batch):
                 if len(detections) == 0:
                     detection_failures += 1
                     continue
-                
                 bbox_xyxy = detections[0]['bbox']
-                cropped_img = crop_bbox_optimized(image_BGR, bbox_xyxy, margin=0.15, output_size=(224, 224))
-                cropped_tensor = transform(cropped_img).unsqueeze(0).to(Config.DEVICE)
-                
-                pred_quaternion = pose_model(cropped_tensor)
-                all_pred_quaternions.append(pred_quaternion.cpu().squeeze(0))
-                all_gt_quaternions.append(gt_quaternion.cpu().squeeze(0))
-                all_obj_ids.append([obj_id])
+                cropped_img = crop_bbox_optimized(images_BGR[i], bbox_xyxy, margin=0.15, output_size=(224, 224))
+                crop_tensors.append(transform(cropped_img))
+                crop_gt_quaternions.append(gt_quaternions[i].unsqueeze(0))
+                crop_obj_ids.append([obj_ids[i].item()])
+                crop_depth_paths.append(depth_paths[i])
+                if gt_translations is not None:
+                    crop_gt_translations.append(gt_translations[i].numpy())
+                valid_indices.append(i)
+                samples_processed += 1
+                if max_samples is not None and samples_processed >= max_samples:
+                    break
 
-                # Pinhole translation
+            if not crop_tensors:
+                if max_samples is not None and samples_processed >= max_samples:
+                    break
+                continue
+
+            crop_tensors_batch = torch.stack(crop_tensors).to(Config.DEVICE)
+            pred_quaternions_batch = pose_model(crop_tensors_batch)
+            crop_gt_quaternions_batch = torch.cat(crop_gt_quaternions, dim=0).to(Config.DEVICE)
+
+            for j in range(len(crop_tensors)):
+                all_pred_quaternions.append(pred_quaternions_batch[j].cpu())
+                all_gt_quaternions.append(crop_gt_quaternions_batch[j].cpu())
+                all_obj_ids.append(crop_obj_ids[j])
+
+                bbox_xyxy = detections_batch[valid_indices[j]][0]['bbox']
                 bbox_xywh = np.array([
                     bbox_xyxy[0], bbox_xyxy[1],
                     bbox_xyxy[2] - bbox_xyxy[0], bbox_xyxy[3] - bbox_xyxy[1]
                 ])
                 camera_intrinsics = load_camera_intrinsics(
-                    os.path.join(os.path.dirname(depth_path), '../gt.yml')
+                    os.path.join(os.path.dirname(crop_depth_paths[j]), '../gt.yml')
                 )
                 pred_trans = compute_translation_pinhole_batch(
-                    np.array([bbox_xywh]), [depth_path], camera_intrinsics
+                    np.array([bbox_xywh]), [crop_depth_paths[j]], camera_intrinsics
                 )
-                # Converti da millimetri a metri per consistenza con GT
                 pred_trans = pred_trans / 1000.0
                 all_pred_translations.append(pred_trans[0])
+                if gt_translations is not None:
+                    all_gt_translations.append(crop_gt_translations[j])
 
-                if gt_translation is not None:
-                    all_gt_translations.append(gt_translation)
-                
-                samples_processed += 1
-            
             if max_samples is not None and samples_processed >= max_samples:
                 break
 
@@ -279,7 +300,7 @@ def run_yolo_baseline_pipeline(yolo_model, pose_model, image_loader, name, max_s
     save_validation_results(results_full_pose, results_pinhole, checkpoint_dir)
     print(f"Results saved to {checkpoint_dir / 'validation_result.csv'}")
 
-def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='yolo_endtoend_pipeline', max_samples=None):
+def run_yolo_endtoend_pipeline(yolo_model, pose_model, image_loader, name='pose_rgb_endtoend', max_samples=None):
     """
     Validates full pipeline: YOLO detection → crop → ResNet end-to-end.
     

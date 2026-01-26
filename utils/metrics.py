@@ -26,6 +26,49 @@ import torch
 from config import Config
 
 
+def process_obj_for_add(args):
+    obj_id, obj_ids, pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch, models_dict, models_info, symmetric_objects, threshold = args
+    import numpy as np
+    indices = [i for i, oid in enumerate(obj_ids) if oid == obj_id]
+    if not indices:
+        return None
+    model_points = models_dict[obj_id]
+    diameter = models_info[obj_id]['diameter']
+    is_symmetric = obj_id in symmetric_objects
+
+    pred_R = pred_R_batch[indices]
+    pred_t = pred_t_batch[indices]
+    gt_R = gt_R_batch[indices]
+    gt_t = gt_t_batch[indices]
+
+    pred_points = np.einsum('kij,nj->kni', pred_R, model_points) + pred_t[:, None, :]
+    gt_points = np.einsum('kij,nj->kni', gt_R, model_points) + gt_t[:, None, :]
+
+    local_add_values = np.zeros(len(indices))
+    if is_symmetric:
+        try:
+            from scipy.spatial.distance import cdist
+            for local_idx in range(len(indices)):
+                distances = cdist(pred_points[local_idx], gt_points[local_idx])
+                min_distances = np.min(distances, axis=1)
+                local_add_values[local_idx] = np.mean(min_distances)
+        except ImportError:
+            for local_idx in range(len(indices)):
+                diff = pred_points[local_idx][:, None, :] - gt_points[local_idx][None, :, :]
+                distances = np.linalg.norm(diff, axis=2)
+                min_distances = np.min(distances, axis=1)
+                local_add_values[local_idx] = np.mean(min_distances)
+    else:
+        distances = np.linalg.norm(pred_points - gt_points, axis=2)
+        add_batch = np.mean(distances, axis=1)
+        local_add_values = add_batch
+
+    threshold_value = diameter * threshold
+    local_add_thresholds = np.full(len(indices), threshold_value)
+    local_is_correct = local_add_values < threshold_value
+
+    return indices, local_add_values, local_add_thresholds, local_is_correct
+
 def _to_numpy(array: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
     if isinstance(array, torch.Tensor):
         return array.cpu().numpy()
@@ -120,50 +163,39 @@ def compute_add_batch(
     if gt_t_batch.ndim == 3 and gt_t_batch.shape[1] == 1:
         gt_t_batch = gt_t_batch.squeeze(1)
 
+
     batch_size = len(obj_ids)
     unique_obj_ids = set(obj_ids)
-
     add_values = np.zeros(batch_size)
     add_thresholds = np.zeros(batch_size)
     is_correct_array = np.zeros(batch_size, dtype=bool)
 
-    for obj_id in unique_obj_ids:
-        indices = [i for i, oid in enumerate(obj_ids) if oid == obj_id]
-        if not indices:
-            continue
-        model_points = models_dict[obj_id]
-        diameter = models_info[obj_id]['diameter']
-        is_symmetric = obj_id in symmetric_objects
 
-        pred_R = pred_R_batch[indices]
-        pred_t = pred_t_batch[indices]
-        gt_R = gt_R_batch[indices]
-        gt_t = gt_t_batch[indices]
-
-        pred_points = np.einsum('kij,nj->kni', pred_R, model_points) + pred_t[:, None, :]
-        gt_points = np.einsum('kij,nj->kni', gt_R, model_points) + gt_t[:, None, :]
-
-        if is_symmetric:
-            try:
-                from scipy.spatial.distance import cdist
-                for local_idx, global_idx in enumerate(indices):
-                    distances = cdist(pred_points[local_idx], gt_points[local_idx])
-                    min_distances = np.min(distances, axis=1)
-                    add_values[global_idx] = np.mean(min_distances)
-            except ImportError:
-                for local_idx, global_idx in enumerate(indices):
-                    diff = pred_points[local_idx][:, None, :] - gt_points[local_idx][None, :, :]
-                    distances = np.linalg.norm(diff, axis=2)
-                    min_distances = np.min(distances, axis=1)
-                    add_values[global_idx] = np.mean(min_distances)
-        else:
-            distances = np.linalg.norm(pred_points - gt_points, axis=2)
-            add_batch = np.mean(distances, axis=1)
-            add_values[indices] = add_batch
-
-        threshold_value = diameter * threshold
-        add_thresholds[indices] = threshold_value
-        is_correct_array[indices] = add_values[indices] < threshold_value
+    import concurrent.futures
+    n_jobs = Config.PARALLEL_JOBS
+    if n_jobs > 1 and len(unique_obj_ids) > 1:
+        args_list = [
+            (obj_id, obj_ids, pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch, models_dict, models_info, symmetric_objects, threshold)
+            for obj_id in unique_obj_ids
+        ]
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            results = list(executor.map(process_obj_for_add, args_list))
+        for res in results:
+            if res is None:
+                continue
+            indices, local_add_values, local_add_thresholds, local_is_correct = res
+            add_values[indices] = local_add_values
+            add_thresholds[indices] = local_add_thresholds
+            is_correct_array[indices] = local_is_correct
+    else:
+        for obj_id in unique_obj_ids:
+            res = process_obj_for_add((obj_id, obj_ids, pred_R_batch, pred_t_batch, gt_R_batch, gt_t_batch, models_dict, models_info, symmetric_objects, threshold))
+            if res is None:
+                continue
+            indices, local_add_values, local_add_thresholds, local_is_correct = res
+            add_values[indices] = local_add_values
+            add_thresholds[indices] = local_add_thresholds
+            is_correct_array[indices] = local_is_correct
 
     return {
         'add_values': add_values.tolist(),

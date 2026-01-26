@@ -289,6 +289,35 @@ class YOLODetector:
         
         return detections
     
+    def detect_objects_batch(
+            self,
+            images: List[np.ndarray],
+            conf_threshold: float = None
+        ) -> List[List[Dict]]:
+            """
+            Detect objects in a batch of images.
+            Args:
+                images: List of images (H, W, 3) in RGB format
+                conf_threshold: Confidence threshold
+            Returns:
+                List of detections for each image (list of list of dict)
+            """
+            conf_threshold = conf_threshold or Config.YOLO_CONF_THRESHOLD
+            # Ultralytics accetta lista di np.ndarray o batch tensor
+            results = self.predict(images, conf=conf_threshold, verbose=False)
+            batch_detections = []
+            for result in results:
+                detections = []
+                for i in range(len(result.boxes)):
+                    detections.append({
+                        'bbox': result.boxes.xyxy[i].cpu().numpy(),
+                        'confidence': float(result.boxes.conf[i].cpu().numpy()),
+                        'class_id': int(result.boxes.cls[i].cpu().numpy()),
+                        'class_name': result.names[int(result.boxes.cls[i])]
+                    })
+                batch_detections.append(detections)
+            return batch_detections
+    
     def validate(
         self,
         data_yaml: str,

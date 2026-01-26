@@ -101,8 +101,8 @@ def train_pose_baseline(
             last_path = os.path.join(weights_dir, 'last.pt')
             torch.save(model.state_dict(), last_path)
         # Save best if requested
-        if save_best and avg_loss < best_loss and weights_dir:
-            best_loss = avg_loss
+        if save_best and avg_val_loss < best_loss and weights_dir:
+            best_loss = avg_val_loss
             best_epoch = epoch
             best_path = os.path.join(weights_dir, 'best.pt')
             torch.save(model.state_dict(), best_path)
@@ -259,8 +259,8 @@ def train_pose_full(
             last_path = os.path.join(weights_dir, 'last.pt')
             torch.save(model.state_dict(), last_path)
         # Save best if requested
-        if save_best and avg_loss < best_loss and weights_dir:
-            best_loss = avg_loss
+        if save_best and avg_val_loss < best_loss and weights_dir:
+            best_loss = avg_val_loss
             best_epoch = epoch
             best_path = os.path.join(weights_dir, 'best.pt')
             torch.save(model.state_dict(), best_path)
