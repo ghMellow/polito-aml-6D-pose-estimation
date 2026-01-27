@@ -80,8 +80,7 @@ def load_all_models(
     models_dict = {}
     
     if verbose:
-        print("Carico modelli 3D degli oggetti in memoria.")
-        print("Questi vengono usati per calcolare la metrica ADD.")
+        print("[load_all_models] VERBOSE - Loading data")
     
     for obj_id in obj_ids:
         model_path = models_dir / f"obj_{obj_id:02d}.ply"
@@ -91,13 +90,13 @@ def load_all_models(
                 points = load_3d_model(model_path)
                 models_dict[obj_id] = points
                 if verbose:
-                    print(f"Loaded model {obj_id:02d}: {len(points)} points")
+                    print(f"[load_all_models] Loaded model {obj_id:02d}: {len(points)} points")
             except Exception as e:
                 if verbose:
-                    print(f"Failed to load model {obj_id:02d}: {e}")
+                    print(f"[load_all_models] Failed to load model {obj_id:02d}: {e}")
         else:
             if verbose:
-                print(f"Model file not found: {model_path}")
+                print(f"[load_all_models] Model file not found: {model_path}")
     
     return models_dict
 
