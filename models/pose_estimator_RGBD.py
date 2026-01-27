@@ -426,13 +426,13 @@ Examples:
     if args.checkpoint:
         checkpoint = model.load_weights(args.checkpoint, device=device)
     else:
-        print("⚠️  No checkpoint provided, using random/pretrained weights")
+        print("No checkpoint provided, using random/pretrained weights")
     
     model.eval()
     
     # Print model summary
     params = model.count_parameters()
-    print(f"\n📊 Model Parameters:")
+    print(f"\n\tModel Parameters:")
     print(f"   RGB Encoder:    {params['rgb_encoder']:>10,}")
     print(f"   Depth Encoder:  {params['depth_encoder']:>10,}")
     print(f"   Meta Encoder:   {params['meta_encoder']:>10,}")
@@ -441,7 +441,7 @@ Examples:
     print(f"   Total:          {params['total']:>10,}")
     print(f"   Trainable:      {params['trainable']:>10,}")
     
-    print(f"\n📐 Feature Dimensions:")
+    print(f"\n\tFeature Dimensions:")
     print(f"   RGB:    {model.rgb_output_dim}")
     print(f"   Depth:  {model.depth_output_dim}")
     print(f"   Meta:   {model.meta_output_dim}")
@@ -449,7 +449,7 @@ Examples:
     
     # Test forward pass
     print("\n" + "-" * 60)
-    print("🧪 Testing forward pass with dummy data...")
+    print("Testing forward pass with dummy data...")
     
     batch_size = 4
     rgb = torch.randn(batch_size, 3, 224, 224).to(device)
@@ -459,19 +459,19 @@ Examples:
     with torch.no_grad():
         pose = model(rgb, depth, meta)
     
-    print(f"\n📥 Input shapes:")
+    print(f"\nInput shapes:")
     print(f"   RGB:   {tuple(rgb.shape)}")
     print(f"   Depth: {tuple(depth.shape)}")
     print(f"   Meta:  {tuple(meta.shape)}")
     
-    print(f"\n📤 Output shape: {tuple(pose.shape)}")
+    print(f"\nOutput shape: {tuple(pose.shape)}")
     
     # Verify quaternion normalization
     quat_norms = torch.norm(pose[:, :4], dim=1)
-    print(f"\n🔍 Quaternion norms (should be ~1.0): {quat_norms.cpu().numpy()}")
+    print(f"\nQuaternion norms (should be ~1.0): {quat_norms.cpu().numpy()}")
     
-    print(f"\n📋 Sample output (first sample):")
+    print(f"\nSample output (first sample):")
     print(f"   Quaternion [qw, qx, qy, qz]: {pose[0, :4].cpu().numpy()}")
     print(f"   Translation [tx, ty, tz]:    {pose[0, 4:].cpu().numpy()}")
     
-    print("\n✅ Model test complete!")
+    print("\nModel test complete!")
