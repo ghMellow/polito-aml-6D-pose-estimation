@@ -85,10 +85,14 @@ def ensure_model_available(model_name: str, device: str = 'cpu', check_exists_on
     
     # Check if it is a LFS pointer
     if is_lfs_pointer(checkpoint_path):
-        raise FileNotFoundError(
-            f"The file is a Git LFS pointer, not the actual checkpoint: {checkpoint_path}\n"
-            f"Run 'git lfs pull' or download the checkpoints from GitHub."
-        )
+        try:
+            download_checkpoint_from_github(model_name, checkpoint_path)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Checkpoint not found and download failed: {checkpoint_path}\n"
+                f"Error: {e}\n"
+                f"Download the checkpoints from GitHub or run training."
+            )
     
     print(f"\nCheckpoint found: {checkpoint_path}")
     return checkpoint_path
