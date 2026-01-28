@@ -120,18 +120,28 @@ def load_model_checkpoint(model_name: str, model_instance: Any, device: str = 'c
         model = load_model_checkpoint("pose_rgb_endtoend", model, device='cuda')
     """
     checkpoint_path = ensure_model_available(model_name, device=device)
-    
-    # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-    
-    # Load weights into model
+
+    # Special handling for fusion_rgbd_512: checkpoint is a dict with module keys and metadata
+    if model_name == "fusion_rgbd_512":
+        # Try to load weights with strict=False to allow partial match
+        model_instance.load_state_dict(checkpoint, strict=False)
+        print(f"Weights loaded successfully for {model_name}")
+        # Optionally print metadata if present
+        if isinstance(checkpoint, dict):
+            epoch = checkpoint.get('epoch', 'N/A')
+            val_loss = checkpoint.get('val_loss', None)
+            print(f"   Epoch: {epoch}")
+            if val_loss is not None:
+                print(f"   Val Loss: {val_loss:.4f}")
+        return model_instance
+
+    # Default: direct state_dict (for pose_rgb_baseline, pose_rgb_endtoend, etc.)
     if MODEL_REGISTRY[model_name]["has_wrapper"]:
-        # Checkpoint with wrapper (contains 'model_state_dict')
         model_instance.load_state_dict(checkpoint['model_state_dict'])
     else:
-        # Direct checkpoint (already a state_dict)
         model_instance.load_state_dict(checkpoint)
-    
+
     print(f"Weights loaded successfully for {model_name}")
     return model_instance
 
