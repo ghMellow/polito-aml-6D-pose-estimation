@@ -66,7 +66,7 @@ class PoseEstimator(nn.Module):
             nn.Linear(512, 7)  # 4 (quat) + 3 (trans)
         )
         
-        print(f"✅ PoseEstimator initialized")
+        print(f"   PoseEstimator initialized")
         print(f"   Backbone: {Config.POSE_BACKBONE} (pretrained={pretrained}, frozen={freeze_backbone})")
         print(f"   Feature dim: {self.feature_dim}")
         print(f"   Output: 7 values (4 quaternion + 3 translation)")
