@@ -105,15 +105,15 @@ def ensure_model_available(model_name: str, device: str = 'cpu', check_exists_on
 
 def load_model_checkpoint(model_name: str, model_instance: Any, device: str = 'cpu') -> Any:
     """
-    Load a checkpoint into a model.
+    Load a checkpoint into a model and move it to the specified device.
     
     Args:
         model_name: Model name (must be in MODEL_REGISTRY)
         model_instance: Model instance to load weights into
-        device: PyTorch device ('cpu', 'cuda', etc.)
+        device: PyTorch device ('cpu', 'cuda', 'mps', etc.)
     
     Returns:
-        Model with loaded weights
+        Model with loaded weights, moved to the specified device
     
     Example:
         model = PoseEstimator(pretrained=True)
@@ -125,7 +125,8 @@ def load_model_checkpoint(model_name: str, model_instance: Any, device: str = 'c
     # Special handling for fusion_rgbd_512: checkpoint is a dict with module keys and metadata
     if model_name == "fusion_rgbd_512":
         # Try to load weights with strict=False to allow partial match
-        model_instance.load_state_dict(checkpoint, strict=False)
+        model_instance.load_weights(checkpoint_path)
+        model_instance = model_instance.to(device)
         print(f"Weights loaded successfully for {model_name}")
         # Optionally print metadata if present
         if isinstance(checkpoint, dict):
@@ -142,6 +143,7 @@ def load_model_checkpoint(model_name: str, model_instance: Any, device: str = 'c
     else:
         model_instance.load_state_dict(checkpoint)
 
+    model_instance = model_instance.to(device)
     print(f"Weights loaded successfully for {model_name}")
     return model_instance
 
@@ -152,4 +154,3 @@ if __name__ == "__main__":
     for model_name, config in MODEL_REGISTRY.items():
         exists = "OK" if config["path"].exists() else "MISSING"
         print(f"{exists} {model_name}: {config['path']}")
-
