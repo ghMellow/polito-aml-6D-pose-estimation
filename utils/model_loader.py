@@ -5,6 +5,7 @@ import urllib.request
 from config import Config
 
 # GitHub repository configuration (for future use)
+# GITHUB_BASE_URL = "https://raw.githubusercontent.com/ghMellow/polito-aml-6D-pose-estimation/main"
 GITHUB_BASE_URL = "https://github.com/ghMellow/polito-aml-6D-pose-estimation/raw/refs/heads/main"
 
 # Model registry: defines relative paths and how to load checkpoints
@@ -23,6 +24,10 @@ MODEL_REGISTRY = {
     },
     "yolo_train20": {
         "path": Config.CHECKPOINT_DIR / "yolo" / "yolo_train20" / "weights" / "best.pt",
+        "has_wrapper": False,
+    },
+    "yolo_train10": {
+        "path": Config.CHECKPOINT_DIR / "yolo" / "yolo_train10" / "weights" / "best.pt",
         "has_wrapper": False,
     },
 }
