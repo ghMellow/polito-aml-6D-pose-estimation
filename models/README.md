@@ -1,89 +1,114 @@
-# Modulo `models/` – 6D Pose Estimation
+# Models Directory - 6D Pose Estimation
 
-## 1. Panoramica
-Questa cartella contiene tutte le implementazioni dei modelli principali per la pipeline di stima della posa 6D. Qui sono definiti i modelli di **object detection** (YOLO) e di **6D pose estimation** (sia baseline che end-to-end), utilizzati per rilevare oggetti e stimarne posizione e orientamento nello spazio. I modelli sono progettati per essere modulari, facilmente estendibili e integrabili nella pipeline del progetto.
+## 1. Overview
+This directory contains all main model implementations for the 6D pose estimation pipeline. It defines the **object detection** models (YOLO) and **6D pose estimation** models (baseline, end-to-end RGB, and RGB-D fusion), used to detect objects and estimate their position and orientation in space. The models are designed to be modular, easily extensible, and integrable into the project pipeline.
 
-## 2. Struttura della cartella
-- `yolo_detector.py` — Wrapper per YOLOv11 (Ultralytics) per object detection
-- `pose_estimator_baseline.py` — Modello baseline: stima solo la rotazione (quaternion) con ResNet-50, traslazione calcolata geometricamente
-- `pose_estimator_endtoend.py` — Modello end-to-end: stima sia rotazione (quaternion) che traslazione (vettore 3D) con ResNet-50
-- `__init__.py` — Rende la cartella un modulo Python
-- `README.md` — Questo file
+## 2. Directory Structure
+- `yolo_detector.py` - Wrapper for YOLOv11 (Ultralytics) for object detection
+- `pose_estimator_baseline.py` - Baseline model: estimates only rotation (quaternion) with ResNet-50, translation computed geometrically
+- `pose_estimator_endtoend.py` - End-to-end RGB model: estimates both rotation (quaternion) and translation (3D vector) with ResNet-50
+- `pose_estimator_RGBD.py` - RGB-D fusion model: multi-modal architecture combining RGB, depth, and metadata for joint rotation and translation estimation
+- `depth_encoder.py` - Custom CNN encoder for depth image features
+- `meta_encoder.py` - MLP encoder for bounding box and camera intrinsics metadata
+- `pose_regressor.py` - MLP regressor head for final pose prediction
+- `__init__.py` - Makes the directory a Python module
+- `README.md` - This file
 
-## 3. Componenti/Moduli principali
+## 3. Main Components
 
 ### `yolo_detector.py`
-- **Cosa fa:**
-  - Fornisce una classe `YOLODetector` che incapsula la logica di caricamento, training, validazione e inferenza di modelli YOLOv11 tramite Ultralytics.
-  - Permette di personalizzare il numero di classi, congelare il backbone, esportare il modello e visualizzare le predizioni.
-- **Classi/Funzioni principali:**
-  - `YOLODetector`: wrapper completo per YOLOv11 (inizializzazione, train, predict, validate, export, freeze_backbone, ecc.)
-  - `visualize_detections`: funzione per visualizzare le predizioni su immagini
-- **Dipendenze chiave:**
+- **Purpose:**
+  - Provides a `YOLODetector` class that encapsulates the logic for loading, training, validation, and inference of YOLOv11 models via Ultralytics.
+  - Allows customization of number of classes, backbone freezing, model export, and prediction visualization.
+- **Main Classes/Functions:**
+  - `YOLODetector`: complete wrapper for YOLOv11 (initialization, train, predict, validate, export, freeze_backbone, etc.)
+  - `visualize_detections`: function to visualize predictions on images
+- **Key Dependencies:**
   - `ultralytics` (YOLO), `torch`, `numpy`, `config.Config`
 
 ### `pose_estimator_baseline.py`
-- **Cosa fa:**
-  - Implementa il modello baseline richiesto: la rotazione viene stimata da una ResNet-50, la traslazione è calcolata con il modello di camera pinhole (non appresa).
-- **Classi/Funzioni principali:**
-  - `PoseEstimatorBaseline`: modulo PyTorch che predice solo la rotazione (quaternion)
-  - `create_pose_estimator_baseline`: factory function per istanziare e configurare il modello
-- **Dipendenze chiave:**
-  - `torch`, `torchvision`, `config.Config`, `utils.pinhole` (per la traslazione)
+- **Purpose:**
+  - Implements the baseline model: rotation is estimated by ResNet-50, translation is computed with the pinhole camera model (not learned).
+- **Main Classes/Functions:**
+  - `PoseEstimatorBaseline`: PyTorch module that predicts only rotation (quaternion)
+  - `create_pose_estimator_baseline`: factory function to instantiate and configure the model
+- **Key Dependencies:**
+  - `torch`, `torchvision`, `config.Config`, `utils.pinhole` (for translation)
 
 ### `pose_estimator_endtoend.py`
-- **Cosa fa:**
-  - Implementa un modello end-to-end per la stima della posa 6D: sia rotazione (quaternion) che traslazione sono apprese da una ResNet-50.
-- **Classi/Funzioni principali:**
-  - `PoseEstimator`: modulo PyTorch che predice rotazione e traslazione
-  - `create_pose_estimator`: factory function per istanziare e configurare il modello
-- **Dipendenze chiave:**
+- **Purpose:**
+  - Implements an end-to-end RGB model for 6D pose estimation: both rotation (quaternion) and translation are learned by ResNet-50.
+- **Main Classes/Functions:**
+  - `PoseEstimator`: PyTorch module that predicts rotation and translation
+  - `create_pose_estimator`: factory function to instantiate and configure the model
+- **Key Dependencies:**
   - `torch`, `torchvision`, `config.Config`
 
-## 4. Utilizzo: Esempi pratici
+### `pose_estimator_RGBD.py`
+- **Purpose:**
+  - Implements a multi-modal RGB-D fusion architecture for 6D pose estimation, combining RGB features (ResNet-18), depth features (DepthEncoder), and metadata features (MetaEncoder) for joint rotation and translation prediction.
+- **Main Classes/Functions:**
+  - `RGBDFusionModel`: complete RGB-D fusion model with three parallel encoders and a pose regressor
+  - `build_crop_meta`: utility function to construct metadata tensors from bounding boxes and camera intrinsics
+- **Key Dependencies:**
+  - `torch`, `torchvision`, `models.depth_encoder`, `models.meta_encoder`, `models.pose_regressor`
 
-### YOLODetector: rilevamento oggetti
+## 4. Usage Examples
+
+### YOLODetector: object detection
 ```python
 from models.yolo_detector import YOLODetector
 
 yolo = YOLODetector(model_name='yolo11n', pretrained=True, num_classes=13)
 results = yolo.predict('path/to/image.jpg')
-# results: lista di oggetti rilevati
+# results: list of detected objects
 ```
 
-### PoseEstimatorBaseline: stima rotazione (baseline)
+### PoseEstimatorBaseline: rotation estimation (baseline)
 ```python
 from models.pose_estimator_baseline import create_pose_estimator_baseline
 
 model = create_pose_estimator_baseline(pretrained=True, freeze_backbone=False)
 model.eval()
-# x = batch di immagini torch (B, 3, H, W)
+# x = batch of torch images (B, 3, H, W)
 quaternion = model(x)  # (B, 4)
 ```
 
-### PoseEstimator (end-to-end): stima rotazione e traslazione
+### PoseEstimator (end-to-end RGB): rotation and translation estimation
 ```python
 from models.pose_estimator_endtoend import create_pose_estimator
 
 model = create_pose_estimator(pretrained=True, freeze_backbone=False)
 model.eval()
-# x = batch di immagini torch (B, 3, H, W)
+# x = batch of torch images (B, 3, H, W)
 pred = model.predict(x)
 # pred['quaternion']: (B, 4), pred['translation']: (B, 3)
 ```
 
-## 5. Note tecniche e convenzioni
-- **Configurazione centralizzata:** Tutti i modelli leggono i parametri di default da `config.Config` (device, dropout, learning rate, ecc.).
+### RGBDFusionModel: multi-modal RGB-D fusion
+```python
+from models.pose_estimator_RGBD import RGBDFusionModel
+
+model = RGBDFusionModel(pretrained_rgb=True)
+model.load_weights('checkpoints/pose/fusion_rgbd_512/best.pt')
+model.eval()
+# rgb: (B, 3, 224, 224), depth: (B, 1, 224, 224), meta: (B, 10)
+pose = model(rgb, depth, meta)  # (B, 7) -> [qw, qx, qy, qz, tx, ty, tz]
+```
+
+## 5. Technical Notes and Conventions
+- **Centralized configuration:** All models read default parameters from `config.Config` (device, dropout, learning rate, etc.).
 - **PyTorch best practices:**
-  - Uso di `nn.Sequential` per il backbone e le teste di regressione
-  - Normalizzazione dei quaternioni in output (norma unitaria)
-  - Possibilità di congelare il backbone per il fine-tuning
-- **Compatibilità YOLO:** Il wrapper gestisce sia pesi pre-addestrati che custom, e permette l’esportazione in vari formati (ONNX, TorchScript, ecc.).
-- **Baseline vs End-to-End:**
-  - *Baseline*: solo rotazione appresa, traslazione calcolata geometricamente (pinhole)
-  - *End-to-End*: sia rotazione che traslazione apprese dal modello
-- **Esempi e workflow:** Vedi anche le notebook nella cartella `notebooks/` e i commenti nei moduli per pipeline complete.
+  - Use of `nn.Sequential` for backbone and regression heads
+  - Quaternion normalization in output (unit norm)
+  - Ability to freeze backbone for fine-tuning
+- **YOLO compatibility:** The wrapper handles both pretrained and custom weights, and allows export to various formats (ONNX, TorchScript, etc.).
+- **Model Comparison:**
+  - *Baseline*: only rotation learned, translation computed geometrically (pinhole)
+  - *End-to-End RGB*: both rotation and translation learned by the model
+  - *RGB-D Fusion*: multi-modal architecture leveraging RGB, depth, and metadata for improved pose estimation
+- **Examples and workflow:** See also the notebooks in the `notebooks/` directory and comments in the modules for complete pipelines.
 
 ---
 
-Per dettagli su training, validazione e pipeline, consultare la documentazione nei singoli file e le notebook di esempio.
+For details on training, validation, and pipelines, refer to the documentation in individual files and example notebooks.

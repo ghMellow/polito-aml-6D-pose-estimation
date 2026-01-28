@@ -2,105 +2,106 @@
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/) [![PyTorch](https://img.shields.io/badge/pytorch-1.10%2B-red.svg)](https://pytorch.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Stima della posa 6D di oggetti su dataset LineMOD tramite pipeline modulari: detection, stima rotazione/traslazione, training e valutazione modelli deep learning.
+6D object pose estimation on LineMOD dataset through modular pipelines: detection, rotation/translation estimation, deep learning model training and validation.
 
 ---
 
-## 📑 Indice
-- [Panoramica](#panoramica)
+## Table of Contents
+- [Overview](#overview)
 - [Features](#features)
-- [Architettura](#architettura)
+- [Architecture](#architecture)
 - [Getting Started](#getting-started)
-- [Utilizzo](#utilizzo)
-- [Struttura del Progetto](#struttura-del-progetto)
-- [Documentazione](#documentazione)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
-- [Contatti/Autori](#contattiautori)
+- [Contact](#contact)
 
 ---
 
-## 🧐 Panoramica
+## Overview
 
-Questo progetto fornisce una pipeline completa per la stima della posa 6D di oggetti su LineMOD, combinando detection (YOLO), stima della rotazione (ResNet-50) e traslazione (modello pinhole o end-to-end). È pensato per:
-- Ricercatori e studenti in visione artificiale e robotica
-- Sviluppatori interessati a pipeline modulari per 6D pose
-- Chi vuole riprodurre, estendere o confrontare soluzioni su LineMOD
+This project provides a complete pipeline for 6D object pose estimation on the LineMOD dataset, combining detection (YOLO), rotation estimation (ResNet-50/ResNet-18), and translation (pinhole model, end-to-end RGB, or RGB-D fusion). It is designed for:
+- Researchers and students in computer vision and robotics
+- Developers interested in modular pipelines for 6D pose estimation
+- Those who want to reproduce, extend, or compare solutions on LineMOD
 
-**Problema risolto:** stima accurata di posizione e orientamento 3D di oggetti noti in immagini RGB, con pipeline facilmente adattabile e riproducibile.
-
----
-
-## 🚀 Features
-- Pipeline modulari: baseline (YOLO + pinhole + ResNet) ed end-to-end (YOLO + ResNet)
-- Training e fine-tuning: YOLOv11, ResNet-50 (rotazione e traslazione)
-- Dataset handler: caricamento, parsing e split LineMOD, conversione in formato YOLO
-- Metriche e visualizzazione: ADD/ADD-S, grafici, overlay predizioni
-- Checkpoints e riproducibilità: salvataggio pesi, log, configurazioni YAML
-- Notebook di esempio: training, validazione, pipeline, confronto modelli
-- Configurazione centralizzata: parametri in `config.py`
-- Supporto GPU/CPU/MPS: auto-detect device
+**Problem solved:** accurate estimation of 3D position and orientation of known objects in RGB images, with an easily adaptable and reproducible pipeline.
 
 ---
 
-## 🏗️ Architettura
-
-Il progetto è suddiviso in moduli principali, ciascuno documentato da README specifici:
-
-- **config.py**: Configurazione centralizzata (path, hyperparametri, mapping oggetti)
-- **checkpoints/** ([README](checkpoints/README.md)): Checkpoint modelli, pesi, log, configurazioni
-- **data/** ([README](data/README.md)): Dataset LineMOD pre-processato, annotazioni, modelli 3D, symlink YOLO
-- **dataset/** ([README](dataset/README.md)): Loader, parser, conversioni e DataLoader per LineMOD
-- **models/** ([README](models/README.md)): Implementazioni YOLO, ResNet-50 baseline, end-to-end
-- **utils/** ([README](utils/README.md)): Utility per bbox, loss, metriche, pinhole, training, visualizzazione
-- **notebooks/** ([README](notebooks/readme.md)): Notebook Jupyter per training, pipeline, validazione, analisi
-- **experimental_notebooks/** ([README](experimental_notebooks/README.md)): Notebook di esplorazione e confronto
+## Features
+- **Modular pipelines:** baseline (YOLO + pinhole + ResNet), end-to-end RGB (YOLO + ResNet), and RGB-D fusion (YOLO + multi-modal fusion model)
+- **Training and fine-tuning:** YOLOv11 for object detection, ResNet-50 for rotation and translation (RGB), ResNet-18 + DepthEncoder for RGB-D fusion
+- **Dataset handlers:** loading, parsing, and splitting LineMOD, conversion to YOLO format
+- **Metrics and visualization:** ADD/ADD-S, plots, prediction overlays, per-class analysis
+- **Checkpoints and reproducibility:** weight saving, logs, YAML configurations
+- **Example notebooks:** training, validation, pipelines, model comparison
+- **Centralized configuration:** parameters in `config.py`
+- **GPU/CPU/MPS support:** automatic device detection
+- **RGB-D fusion architecture:** combines RGB features, depth encoding, and metadata (bbox + camera intrinsics) for improved pose estimation
 
 ---
 
-## ⚡ Getting Started
+## Architecture
 
-### Prerequisiti
+The project is divided into main modules, each documented with specific READMEs:
+
+- **config.py**: Centralized configuration (paths, hyperparameters, object mappings)
+- **checkpoints/** ([README](checkpoints/README.md)): Model checkpoints, weights, logs, configurations
+- **data/** ([README](data/README.md)): Pre-processed LineMOD dataset, annotations, 3D models, YOLO symlinks
+- **dataset/** ([README](dataset/README.md)): Loaders, parsers, conversions, and DataLoaders for LineMOD
+- **models/** ([README](models/README.md)): YOLO implementations, ResNet-50 baseline, end-to-end RGB, RGB-D fusion model
+- **utils/** ([README](utils/README.md)): Utilities for bbox, losses, metrics, pinhole, training, visualization
+- **notebooks/** ([README](notebooks/readme.md)): Jupyter notebooks for training, pipelines, validation, analysis
+- **experimental_notebooks/** ([README](experimental_notebooks/README.md)): Exploration and comparison notebooks
+
+---
+
+## Getting Started
+
+### Prerequisites
 - Python 3.8+
 - PyTorch 1.10+
 - Ultralytics YOLO (v11)
-- Altri: numpy, pandas, matplotlib, pyyaml, tqdm, PIL, opencv-python, gdown
+- Other: numpy, pandas, matplotlib, pyyaml, tqdm, PIL, opencv-python, gdown
 
-### Installazione
-1. **Clona il repository:**
+### Installation
+1. **Clone the repository:**
 	```bash
 	git clone https://github.com/[user]/[repo].git
 	cd polito-aml-6D_pose_estimation
 	```
-2. **Crea un ambiente virtuale (opzionale ma consigliato):**
+2. **Create a virtual environment (optional but recommended):**
 	```bash
 	python -m venv .venv
 	source .venv/bin/activate
 	```
-3. **Installa le dipendenze:**
+3. **Install dependencies:**
 	```bash
 	pip install -r requirements.txt
-	# oppure usa pyproject.toml/poetry se preferito
+	# or use pyproject.toml/poetry if preferred
 	```
-4. **Scarica il dataset LineMOD pre-processato:**
+4. **Download the pre-processed LineMOD dataset:**
 	```bash
 	python utils/download_dataset.py
-	# oppure segui le istruzioni in data/README.md
+	# or follow the instructions in data/README.md
 	```
 
-### Configurazione
-- Tutti i path e parametri sono gestiti in `config.py`.
-- Modifica i parametri secondo le tue esigenze (es. device, batch size, learning rate).
+### Configuration
+- All paths and parameters are managed in `config.py`.
+- Modify parameters according to your needs (e.g., device, batch size, learning rate).
 
-### Primo avvio
-- Esegui uno dei notebook in `notebooks/` per pipeline, training o validazione.
-- Oppure lancia uno script custom usando i moduli `models/`, `utils/`, `dataset/`.
+### First Run
+- Execute one of the notebooks in `notebooks/` for pipelines, training, or validation.
+- Or launch a custom script using the `models/`, `utils/`, `dataset/` modules.
 
 ---
 
-## 🛠️ Utilizzo – Esempi pratici
+## Usage
 
-### Pipeline baseline (YOLO → Pinhole → ResNet)
+### Baseline Pipeline (YOLO + Pinhole + ResNet)
 ```python
 from models.yolo_detector import YOLODetector
 from models.pose_estimator_baseline import PoseEstimatorBaseline
@@ -108,7 +109,28 @@ from utils.pinhole import compute_translation_pinhole
 
 yolo = YOLODetector(model_name='yolo11n.pt', num_classes=13)
 model = PoseEstimatorBaseline(pretrained=True)
-# ...carica batch, esegui detection, stima rotazione e traslazione...
+# ...load batch, run detection, estimate rotation and translation...
+```
+
+### End-to-End RGB Pipeline (YOLO + ResNet)
+```python
+from models.yolo_detector import YOLODetector
+from models.pose_estimator_endtoend import PoseEstimator
+
+yolo = YOLODetector(model_name='yolo11n.pt', num_classes=13)
+model = PoseEstimator(pretrained=True)
+# ...load batch, run detection, estimate full 6D pose...
+```
+
+### RGB-D Fusion Pipeline (YOLO + RGB-D Fusion Model)
+```python
+from models.yolo_detector import YOLODetector
+from models.pose_estimator_RGBD import RGBDFusionModel
+
+yolo = YOLODetector(model_name='yolo11n.pt', num_classes=13)
+model = RGBDFusionModel(pretrained_rgb=True)
+model.load_weights('checkpoints/pose/fusion_rgbd_512/best.pt')
+# ...load batch with RGB, depth, and metadata, estimate full 6D pose...
 ```
 
 ### Fine-tuning YOLO
@@ -119,62 +141,71 @@ detector.freeze_backbone(freeze_until_layer=10)
 results = detector.train(data_yaml='path/to/data.yaml', epochs=20)
 ```
 
-### Training modello baseline (rotazione)
+### Training Baseline Model (Rotation Only)
 ```python
 from models.pose_estimator_baseline import PoseEstimatorBaseline
 model = PoseEstimatorBaseline(pretrained=True)
 # ...setup optimizer, loss, train loop...
 ```
 
-Altri esempi dettagliati nei notebook in [notebooks/](notebooks/readme.md).
+### Training RGB-D Fusion Model
+```python
+from models.pose_estimator_RGBD import RGBDFusionModel
+model = RGBDFusionModel(pretrained_rgb=True)
+# ...setup optimizer, loss, train loop with RGB, depth, and metadata...
+```
+
+For more detailed examples, see the notebooks in [notebooks/](notebooks/readme.md).
 
 ---
 
-## 📂 Struttura del Progetto
+## Project Structure
 
 ```
 polito-aml-6D_pose_estimation/
 ├── config.py
-├── checkpoints/         # [README](checkpoints/README.md)
-├── data/                # [README](data/README.md)
-├── dataset/             # [README](dataset/README.md)
-├── models/              # [README](models/README.md)
-├── utils/               # [README](utils/README.md)
-├── notebooks/           # [README](notebooks/readme.md)
-├── experimental_notebooks/ # [README](experimental_notebooks/README.md)
+├── checkpoints/         # Model checkpoints, weights, logs
+├── data/                # LineMOD dataset, annotations, 3D models
+├── dataset/             # Dataset loaders and parsers
+├── models/              # YOLO, ResNet-50, RGB-D fusion models
+├── utils/               # Utilities, metrics, losses, training
+├── notebooks/           # Training, validation, pipeline notebooks
+├── experimental_notebooks/ # Exploration notebooks
 ├── requirements.txt
 ├── pyproject.toml
 └── README.md
 ```
 
----
-
-## 📚 Documentazione
-- [checkpoints/README.md](checkpoints/README.md): Checkpoint, pesi, log
-- [data/README.md](data/README.md): Dataset LineMOD pre-processato
-- [dataset/README.md](dataset/README.md): Loader e parser dataset
-- [models/README.md](models/README.md): Modelli YOLO, ResNet-50, end-to-end
-- [utils/README.md](utils/README.md): Utility, metriche, pinhole, training
-- [notebooks/readme.md](notebooks/readme.md): Notebook pipeline, training, validazione
-- [experimental_notebooks/README.md](experimental_notebooks/README.md): Notebook di esplorazione e confronto
+Each directory contains a detailed README explaining its contents and usage.
 
 ---
 
-## 🤝 Contributing
-
-Contributi, segnalazioni di bug e proposte di miglioramento sono benvenuti! Apri una issue o una pull request seguendo le best practice di GitHub.
+## Documentation
+- [checkpoints/README.md](checkpoints/README.md): Model checkpoints, weights, logs
+- [data/README.md](data/README.md): Pre-processed LineMOD dataset
+- [dataset/README.md](dataset/README.md): Dataset loaders and parsers
+- [models/README.md](models/README.md): YOLO, ResNet-50, RGB-D fusion models
+- [utils/README.md](utils/README.md): Utilities, metrics, pinhole, training
+- [notebooks/readme.md](notebooks/readme.md): Pipeline, training, validation notebooks
+- [experimental_notebooks/README.md](experimental_notebooks/README.md): Exploration and comparison notebooks
 
 ---
 
-## 📝 License
+## Contributing
 
-Questo progetto è distribuito sotto licenza MIT. Vedi il file [LICENSE](LICENSE) per dettagli.
+Contributions, bug reports, and improvement proposals are welcome! Open an issue or pull request following GitHub best practices.
 
 ---
 
-## 👤 Contatti/Autori
+## License
 
-- [Tuo Nome] – [tuo.email@esempio.com]
-- [Altri autori/contributor]
+This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-Per domande, suggerimenti o collaborazioni, non esitare a contattarci!
+---
+
+## Contact
+
+- Alessandro - Politecnico di Torino
+- Advanced Machine Learning Course Project
+
+For questions, suggestions, or collaborations, feel free to reach out!
