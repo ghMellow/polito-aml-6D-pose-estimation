@@ -1,4 +1,4 @@
-# data
+# Directory data
 
 ## 1. Overview
 
