@@ -4,6 +4,17 @@
 
 6D object pose estimation on LineMOD dataset through modular pipelines: detection, rotation/translation estimation, deep learning model training and validation.
 
+This project was developed for the course [Advanced Machine Learning](https://didattica.polito.it/pls/portal30/gap.pkg_guide.viewGap?p_cod_ins=01URWOV&p_a_acc=2026&p_header=S&p_lang=IT&multi=N) held at Politecnico di Torino
+
+## Authors
+
+Authors are listed in alphabetical order since everyone contributed in equal way
+
+- Androetto Alessandro s338592
+- Mangeruca Donato s346354
+- Pagliarello Matteo s337452
+- Termine Nicolò s338680
+
 ---
 
 ## Table of Contents
@@ -22,12 +33,7 @@
 
 ## Overview
 
-This project provides a complete pipeline for 6D object pose estimation on the LineMOD dataset, combining detection (YOLO), rotation estimation (ResNet-50/ResNet-18), and translation (pinhole model, end-to-end RGB, or RGB-D fusion). It is designed for:
-- Researchers and students in computer vision and robotics
-- Developers interested in modular pipelines for 6D pose estimation
-- Those who want to reproduce, extend, or compare solutions on LineMOD
-
-**Problem solved:** accurate estimation of 3D position and orientation of known objects in RGB images, with an easily adaptable and reproducible pipeline.
+This project provides a complete pipeline for 6D object pose estimation on the LineMOD dataset, combining detection (YOLO), rotation estimation (ResNet-50/ResNet-18), and translation (pinhole model, end-to-end RGB, or RGB-D fusion).
 
 ---
 
@@ -50,7 +56,6 @@ The project is divided into main modules, each documented with specific READMEs:
 
 - **config.py**: Centralized configuration (paths, hyperparameters, object mappings)
 - **checkpoints/** ([README](checkpoints/README.md)): Model checkpoints, weights, logs, configurations
-- **data/** ([README](data/README.md)): Pre-processed LineMOD dataset, annotations, 3D models, YOLO symlinks
 - **dataset/** ([README](dataset/README.md)): Loaders, parsers, conversions, and DataLoaders for LineMOD
 - **models/** ([README](models/README.md)): YOLO implementations, ResNet-50 baseline, end-to-end RGB, RGB-D fusion model
 - **utils/** ([README](utils/README.md)): Utilities for bbox, losses, metrics, pinhole, training, visualization
@@ -159,28 +164,7 @@ For more detailed examples, see the notebooks in [notebooks/](notebooks/readme.m
 
 ---
 
-## Project Structure
-
-```
-polito-aml-6D_pose_estimation/
-├── config.py
-├── checkpoints/         # Model checkpoints, weights, logs
-├── data/                # LineMOD dataset, annotations, 3D models
-├── dataset/             # Dataset loaders and parsers
-├── models/              # YOLO, ResNet-50, RGB-D fusion models
-├── utils/               # Utilities, metrics, losses, training
-├── notebooks/           # Training, validation, pipeline notebooks
-├── experimental_notebooks/ # Exploration notebooks
-├── requirements.txt
-├── pyproject.toml
-└── README.md
-```
-
-Each directory contains a detailed README explaining its contents and usage.
-
----
-
-## Documentation
+## Project structure
 - [checkpoints/README.md](checkpoints/README.md): Model checkpoints, weights, logs
 - [data/README.md](data/README.md): Pre-processed LineMOD dataset
 - [dataset/README.md](dataset/README.md): Dataset loaders and parsers
@@ -189,23 +173,3 @@ Each directory contains a detailed README explaining its contents and usage.
 - [notebooks/readme.md](notebooks/readme.md): Pipeline, training, validation notebooks
 - [experimental_notebooks/README.md](experimental_notebooks/README.md): Exploration and comparison notebooks
 
----
-
-## Contributing
-
-Contributions, bug reports, and improvement proposals are welcome! Open an issue or pull request following GitHub best practices.
-
----
-
-## License
-
-This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-## Contact
-
-- Alessandro - Politecnico di Torino
-- Advanced Machine Learning Course Project
-
-For questions, suggestions, or collaborations, feel free to reach out!
