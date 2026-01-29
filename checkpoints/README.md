@@ -1,4 +1,4 @@
-# Directory checkpoints/pose
+# Directory checkpoints
 
 ## 1. Overview
 
