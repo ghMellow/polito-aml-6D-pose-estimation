@@ -1,8 +1,8 @@
-# Linemod_preprocessed
+# data
 
 ## 1. Overview
 
-This folder contains the pre-processed version of the LINEMOD dataset used for 6D object pose estimation. It provides structured and annotated data for training, validation and testing of detection and pose estimation models, as well as auxiliary resources for segmentation and YOLO pipelines.
+This `data` folder contains the datasets used by the project; its primary subfolder is `Linemod_preprocessed`, which holds a pre-processed version of the LINEMOD dataset for 6D object pose estimation. The `data` folder provides structured and annotated data for training, validation and testing of detection and pose estimation models, as well as auxiliary resources for segmentation and YOLO pipelines.
 
 ## 2. Repository structure
 
