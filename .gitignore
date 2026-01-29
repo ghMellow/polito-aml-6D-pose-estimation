@@ -9,8 +9,7 @@ poetry.lock
 #pyproject.toml
 
 # Dataset
-data/
-!data/README.md
+data/Linemod_preprocessed/
 
 # Model checkpoints
 # checkpoints/*.pth

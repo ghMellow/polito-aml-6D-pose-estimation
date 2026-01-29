@@ -1,112 +1,105 @@
-# Cartella `checkpoints/pose`
+# Directory checkpoints/pose
 
-## 1. Panoramica
+## 1. Overview
 
-Questa cartella contiene i checkpoint dei modelli di stima della posa 6D addestrati e testati all'interno del progetto. I checkpoint rappresentano gli stati salvati dei pesi dei modelli durante o al termine del training, insieme ai file di configurazione e ai risultati delle sessioni di addestramento/validazione. La cartella è fondamentale per riprodurre esperimenti, effettuare inferenze o riprendere l'addestramento da uno stato salvato.
+This directory contains saved checkpoints for the 6D pose estimation models used in this project. Checkpoints store model weight snapshots created during or after training, along with configuration files and training/validation logs. These files are useful for reproducing experiments, running inference, or resuming training.
 
-## 2. Struttura
+## 2. Current subfolders and files
 
-La struttura della cartella è organizzata per esperimenti e versioni di training. Ogni sottocartella rappresenta un esperimento o una variante di training e contiene:
+The `checkpoints/pose` directory currently contains the following subfolders and files:
 
-- `args.yaml`: Parametri di configurazione usati per l'esperimento.
-- `results.csv`, `training_result.csv`, `validation_result.csv`: Log dei risultati di training e validazione.
-- `weights/`: Directory con i file dei pesi salvati (`best.pt`, `last.pt`, ecc.).
+- `fusion_rgbd_512/`
+  - `best.pt`
+- `pose_rgb_baseline/`
+  - `args.yaml`
+  - `validation_result.csv`
+  - `weights/`
+    - `best.pt`
+    - `last.pt`
+- `pose_rgb_endtoend/`
+  - `args.yaml`
+  - `training_result.csv`
+  - `validation_result.csv`
+  - `weights/`
+    - `best.pt`
+    - `last.pt`
 
-Esempio di struttura:
+Other checkpoint directories at the top level of `checkpoints/` (not under `pose`) include:
+
+- `yolo/` (example runs):
+  - `yolo_train10/` (args.yaml, weights/best.pt)
+  - `yolo_train20/` (args.yaml, weights/best.pt, weights/last.pt)
+- `pretrained/` (currently empty)
+
+If you add new experiments, create one subfolder per experiment and include `args.yaml`, any result CSVs, and a `weights/` directory for saved `.pt` files.
+
+## 3. Directory structure and common files
+
+Each experiment folder typically contains:
+
+- `args.yaml`: experiment configuration (hyperparameters, paths, training options).
+- `training_result.csv`, `validation_result.csv`, or `results.csv`: logs with metrics recorded during training/validation.
+- `weights/`: saved model states such as `best.pt` and `last.pt`.
+
+Example layout:
 
 ```
-pose_baseline_train50/
-    weights/
-        best.pt
-        best1812.pt
-pose_stable_train100/
-    args.yaml
-    results.csv
-    weights/
-        best.pt
-        last.pt
-test_endtoend_pose_1/
-    args.yaml
-    training_result.csv
-    validation_result.csv
-    weights/
-        best.pt
-        last.pt
-...
+pose_experiment_name/
+  args.yaml
+  training_result.csv
+  validation_result.csv
+  weights/
+    best.pt
+    last.pt
 ```
 
-## 3. Componenti/Moduli
+## 4. Components
 
-### a. File di configurazione (`args.yaml`)
+- Configuration (`args.yaml`): holds hyperparameters and run settings; used by training scripts.
+- Result logs (`*.csv`): record metrics like losses and accuracies during training and validation.
+- `weights/` and `.pt` files: PyTorch checkpoint files that usually contain `model_state_dict`, optionally `optimizer_state_dict`, `epoch`, and metric summaries.
 
-- **Cosa fa**: Contiene i parametri di configurazione (hyperparametri, percorsi, opzioni di training) usati per l'esperimento.
-- **Dipendenze**: Viene letto dagli script di training per impostare l'esecuzione.
+## 5. Usage examples
 
-### b. File dei risultati (`results.csv`, `training_result.csv`, `validation_result.csv`)
-
-- **Cosa fanno**: Salvano metriche di performance (es. loss, accuracy, ecc.) durante il training e la validazione.
-- **Dipendenze**: Utili per analisi post-training e per il monitoraggio degli esperimenti.
-
-### c. Directory `weights/` e file dei pesi (`best.pt`, `last.pt`, ecc.)
-
-- **Cosa fanno**: Contengono i pesi del modello salvati in diversi momenti:
-  - `best.pt`: Pesi del modello con la miglior performance su validation.
-  - `last.pt`: Pesi del modello all'ultima epoca di training.
-  - Altri file (`best1812.pt`, ecc.) possono rappresentare salvataggi intermedi o versioni specifiche.
-- **Dipendenze**: Caricati dagli script di inferenza o per riprendere il training.
-
-## 4. Utilizzo
-
-### a. Caricamento di un modello per inferenza
-
-Esempio in PyTorch:
+Loading a saved model for inference (PyTorch example):
 
 ```python
 import torch
-from models.pose_estimator_baseline import PoseEstimatorBaseline  # esempio, adattare al modello usato
+from models.pose_estimator_baseline import PoseEstimatorBaseline  # adapt to the actual model class
 
-# Carica la configurazione (se necessario)
-# with open('checkpoints/pose/pose_stable_train100/args.yaml') as f:
-#     config = yaml.safe_load(f)
+# Initialize the model
+model = PoseEstimatorBaseline()
 
-# Inizializza il modello
-model = PoseEstimatorBaseline()  # o il modello appropriato
-
-# Carica i pesi
-checkpoint = torch.load('checkpoints/pose/pose_stable_train100/weights/best.pt', map_location='cpu')
-model.load_state_dict(checkpoint['model_state_dict'])
+# Load checkpoint
+ckpt = torch.load('checkpoints/pose/pose_rgb_baseline/weights/best.pt', map_location='cpu')
+model.load_state_dict(ckpt['model_state_dict'])
 model.eval()
 ```
 
-### b. Ripresa del training
+Resuming training from a `last.pt` checkpoint:
 
 ```python
-# ...inizializzazione modello e ottimizzatore...
-checkpoint = torch.load('checkpoints/pose/pose_stable_train100/weights/last.pt')
-model.load_state_dict(checkpoint['model_state_dict'])
-optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-start_epoch = checkpoint['epoch'] + 1
+ckpt = torch.load('checkpoints/pose/pose_rgb_endtoend/weights/last.pt')
+model.load_state_dict(ckpt['model_state_dict'])
+optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+start_epoch = ckpt.get('epoch', 0) + 1
 ```
 
-### c. Analisi dei risultati
+Analyzing results using pandas:
 
 ```python
 import pandas as pd
-
-results = pd.read_csv('checkpoints/pose/pose_stable_train100/results.csv')
+results = pd.read_csv('checkpoints/pose/pose_rgb_baseline/validation_result.csv')
 print(results.head())
 ```
 
-## 5. Note tecniche
+## 6. Technical notes
 
-- **Pattern di salvataggio**: I checkpoint sono salvati come dizionari PyTorch (`.pt`) che includono tipicamente `model_state_dict`, `optimizer_state_dict`, `epoch`, e metriche.
-- **Convenzioni di naming**: 
-  - Le sottocartelle seguono la convenzione `<tipo>_<descrizione>_<parametri>`, facilitando la tracciabilità degli esperimenti.
-  - I file dei pesi sono denominati in base al criterio di salvataggio (`best`, `last`, ecc.).
-- **Compatibilità**: I file sono pensati per essere caricati con PyTorch, ma la struttura può essere adattata ad altri framework se necessario.
-- **Riproducibilità**: La presenza di `args.yaml` e dei log CSV garantisce la riproducibilità degli esperimenti.
-- **Gestione versioni**: È buona pratica non versionare i file di pesi su Git, ma solo le configurazioni e i log.
+- Checkpoints are saved as PyTorch dictionaries (`.pt`) and commonly include `model_state_dict`, `optimizer_state_dict`, and `epoch`.
+- Naming conventions: `best.pt` denotes the weights with the best validation performance; `last.pt` denotes the most recent saved weights.
+- These files are intended to be loaded with PyTorch, but the general structure can be adapted to other frameworks if needed.
+- For reproducibility, keep `args.yaml` and result CSVs with each experiment; avoid adding raw weight files to Git—store only configuration and small metadata.
 
 ---
 
-Se vuoi aggiungere dettagli specifici sui modelli o sulle metriche salvate, fornisci i contenuti di `args.yaml` o dei CSV e posso integrare la documentazione.
+If you want me to include the exact contents of any `args.yaml` or CSV (for richer documentation), tell me which experiment folder to read and I will add those details.
